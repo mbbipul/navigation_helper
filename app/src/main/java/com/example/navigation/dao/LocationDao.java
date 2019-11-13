@@ -1,9 +1,11 @@
-package com.example.navigation;
+package com.example.navigation.dao;
 
 import androidx.room.Dao;
 import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.Query;
+
+import com.example.navigation.entity.LocationD;
 
 import java.util.List;
 

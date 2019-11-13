@@ -9,11 +9,19 @@ import androidx.fragment.app.FragmentActivity;
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.example.navigation.database.AppDatabase;
+import com.example.navigation.entity.LocationD;
+import com.example.navigation.utils.DatabaseInitializer;
+import com.example.navigation.utils.DatabaseListner;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -26,12 +34,28 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.util.List;
+
 public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLocationButtonClickListener,
-        GoogleMap.OnMyLocationClickListener, OnMapReadyCallback {
+        GoogleMap.OnMyLocationClickListener, OnMapReadyCallback, SensorEventListener, DatabaseListner {
 
     private GoogleMap mMap;
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
 
+    private Location previousLocation= null;
+
+    Float azimut;  // View to draw a compass
+
+    private float prevorientation=0;
+    private boolean hasOrientationChange=false;
+
+    private SensorManager mSensorManager;
+    Sensor accelerometer;
+    Sensor magnetometer;
+    float[] mGravity;
+    float[] mGeomagnetic;
+
+    DatabaseInitializer database;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,7 +65,11 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        DatabaseInitializer.populateAsync(AppDatabase.getAppDatabase(this));
+        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        magnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
+        database = new DatabaseInitializer(AppDatabase.getAppDatabase(this));
 
     }
 
@@ -162,24 +190,92 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
         int permission = ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION);
         if (permission == PackageManager.PERMISSION_GRANTED) {
-            // Request location updates and when an update is
-            // received, store the location in Firebase
+
             client.requestLocationUpdates(request, new LocationCallback() {
                 @Override
                 public void onLocationResult(LocationResult locationResult) {
                     Location location = locationResult.getLastLocation();
                     if (location != null) {
                         Log.d("TAG", "location update " + location);
-                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
-                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+//                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
+//                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
+//                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+
+                        if (previousLocation!=null){
+                            float distance = previousLocation.distanceTo(location);
+                            if ((distance >= 1)|| hasOrientationChange==true){
+                                addLocationToDb(location);
+                            }
+                        }else{
+                            addLocationToDb(location);
+                        }
 
                     }
+                    previousLocation = location;
+
                 }
             }, null);
         }
     }
 
+    private void addLocationToDb(Location location){
+        LocationD locationD = new LocationD();
+
+        locationD.setAltitude(location.getAltitude());
+        locationD.setLattitude(location.getLatitude());
+        locationD.setLongitude(location.getLongitude());
+        locationD.setBearing(location.getBearing());
+        locationD.setSpeed(location.getSpeed());
+
+        database.populateAsync(locationD);
+        fetchAllData(database.getAll());
+    }
+    protected void onResume() {
+        super.onResume();
+        mSensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
+        mSensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_UI);
+    }
+
+    protected void onPause() {
+        super.onPause();
+        mSensorManager.unregisterListener(this);
+    }
+
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {  }
 
 
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+            mGravity = event.values;
+        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+            mGeomagnetic = event.values;
+        if (mGravity != null && mGeomagnetic != null) {
+            float R[] = new float[9];
+            float I[] = new float[9];
+            boolean success = SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic);
+            if (success) {
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(R, orientation);
+                azimut = orientation[0]; // orientation contains: azimut, pitch and roll
+
+                if((azimut-prevorientation) > 0.5){
+                    Log.d("orientation",String.valueOf(azimut));
+                    Toast.makeText(this, "change", Toast.LENGTH_SHORT).show();
+                    hasOrientationChange = true;
+                }
+                prevorientation = azimut;
+            }
+        }
+    }
+
+    @Override
+    public void fetchAllData(List<LocationD> locations) {
+        mMap.clear();
+        Toast.makeText(this,String.valueOf(locations.size()),Toast.LENGTH_LONG);
+        for (int i = 0;i<locations.size();i++){
+            LocationD location = locations.get(i);
+            LatLng latLng =  new LatLng(location.getLattitude(),location.getLongitude());
+            mMap.addMarker(new MarkerOptions().position(latLng).title("Marker in "+i));
+        }
+    }
 }

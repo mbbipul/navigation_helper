@@ -1,4 +1,4 @@
-package com.example.navigation;
+package com.example.navigation.entity;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;

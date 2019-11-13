@@ -1,10 +1,13 @@
-package com.example.navigation;
+package com.example.navigation.database;
 
 import android.content.Context;
 
 import androidx.room.Database;
 import androidx.room.Room;
 import androidx.room.RoomDatabase;
+
+import com.example.navigation.entity.LocationD;
+import com.example.navigation.dao.LocationDao;
 
 @Database(entities = {LocationD.class}, version = 1)
 public abstract class AppDatabase extends RoomDatabase{
