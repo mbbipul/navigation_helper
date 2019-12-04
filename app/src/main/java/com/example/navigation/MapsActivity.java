@@ -8,68 +8,82 @@ import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
+import android.graphics.Color;
+
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.Toast;
 
+import com.amitshekhar.DebugDB;
 import com.example.navigation.database.AppDatabase;
 import com.example.navigation.entity.LocationD;
+import com.example.navigation.entity.Route;
 import com.example.navigation.utils.DatabaseInitializer;
 import com.example.navigation.utils.DatabaseListner;
+import com.example.navigation.utils.RouteInfo;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLocationButtonClickListener,
-        GoogleMap.OnMyLocationClickListener, OnMapReadyCallback, SensorEventListener, DatabaseListner {
+        GoogleMap.OnMyLocationClickListener, OnMapReadyCallback,DatabaseListner, View.OnClickListener {
 
     private GoogleMap mMap;
     public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
 
-    private Location previousLocation= null;
-
-    Float azimut;  // View to draw a compass
-
-    private float prevorientation=0;
-    private boolean hasOrientationChange=false;
-
-    private SensorManager mSensorManager;
-    Sensor accelerometer;
-    Sensor magnetometer;
-    float[] mGravity;
-    float[] mGeomagnetic;
-
     DatabaseInitializer database;
+
+    Location currentLocation;
+
+    Button addRouteStartButton,
+            addRouteLeftButton,
+            addRouteRightButton,
+            addRouteFinishButton;
+
+    String routeName;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
+        Intent intent = getIntent();
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-        accelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        magnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        addRouteStartButton  = findViewById(R.id.start);
+        addRouteLeftButton   = findViewById(R.id.start);
+        addRouteRightButton  = findViewById(R.id.start);
+        addRouteFinishButton = findViewById(R.id.start);
 
-        database = new DatabaseInitializer(AppDatabase.getAppDatabase(this));
+        addRouteStartButton.setOnClickListener(this);
+        addRouteLeftButton.setOnClickListener(this);
+        addRouteRightButton.setOnClickListener(this);
+        addRouteFinishButton.setOnClickListener(this);
+
+        database = new DatabaseInitializer(AppDatabase.getAppDatabase(this),this);
+        database.removeAll();
+        DebugDB.getAddressLog();
+
+
+        routeName = intent.getStringExtra("routename");
 
     }
 
@@ -90,8 +104,8 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
         mMap.setMaxZoomPreference(16);
         mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
         if(checkLocationPermission()){
-            requestLocationUpdates();
             mMap.setMyLocationEnabled(true);
+            requestLocationUpdates();
         }
 
     }
@@ -143,29 +157,19 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
                                            String permissions[], int[] grantResults) {
         switch (requestCode) {
             case MY_PERMISSIONS_REQUEST_LOCATION: {
-                // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
-                    // permission was granted, yay! Do the
-                    // location-related task you need to do.
                     if (ContextCompat.checkSelfPermission(this,
                             Manifest.permission.ACCESS_FINE_LOCATION)
                             == PackageManager.PERMISSION_GRANTED) {
-
-                        //Request location updates:
-                        //locationManager.requestLocationUpdates(provider, 400, 1, this);
                         requestLocationUpdates();
                     }
-
                 } else {
-
                     checkLocationPermission();
 
                 }
                 return;
             }
-
         }
     }
 
@@ -190,7 +194,7 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
         int permission = ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION);
         if (permission == PackageManager.PERMISSION_GRANTED) {
-
+            addRouteStartButton.setEnabled(true);
             client.requestLocationUpdates(request, new LocationCallback() {
                 @Override
                 public void onLocationResult(LocationResult locationResult) {
@@ -200,82 +204,76 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
 //                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
 //                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
 //                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-
-                        if (previousLocation!=null){
-                            float distance = previousLocation.distanceTo(location);
-                            if ((distance >= 1)|| hasOrientationChange==true){
-                                addLocationToDb(location);
-                            }
-                        }else{
-                            addLocationToDb(location);
-                        }
-
+                        currentLocation = location;
                     }
-                    previousLocation = location;
 
                 }
             }, null);
         }
     }
 
-    private void addLocationToDb(Location location){
-        LocationD locationD = new LocationD();
-
-        locationD.setAltitude(location.getAltitude());
-        locationD.setLattitude(location.getLatitude());
-        locationD.setLongitude(location.getLongitude());
-        locationD.setBearing(location.getBearing());
-        locationD.setSpeed(location.getSpeed());
-
-        database.populateAsync(locationD);
-        fetchAllData(database.getAll());
+    private void addRouteToDb(Location location,Route route){
+        database.populateAsync(location,route);
     }
+
     protected void onResume() {
         super.onResume();
-        mSensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI);
-        mSensorManager.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_UI);
+
     }
 
     protected void onPause() {
         super.onPause();
-        mSensorManager.unregisterListener(this);
     }
 
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {  }
 
+    @Override
+    public void onClick(View v) {
+        int viewId = v.getId();
+        Route route = new Route();
 
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-            mGravity = event.values;
-        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-            mGeomagnetic = event.values;
-        if (mGravity != null && mGeomagnetic != null) {
-            float R[] = new float[9];
-            float I[] = new float[9];
-            boolean success = SensorManager.getRotationMatrix(R, I, mGravity, mGeomagnetic);
-            if (success) {
-                float orientation[] = new float[3];
-                SensorManager.getOrientation(R, orientation);
-                azimut = orientation[0]; // orientation contains: azimut, pitch and roll
-
-                if((azimut-prevorientation) > 0.5){
-                    Log.d("orientation",String.valueOf(azimut));
-                    Toast.makeText(this, "change", Toast.LENGTH_SHORT).show();
-                    hasOrientationChange = true;
-                }
-                prevorientation = azimut;
-            }
+        switch (viewId){
+            case R.id.start:
+                route.setRouteName(routeName);
+                route.setDirection("move");
+                addRouteToDb(currentLocation,route);
+                break;
+            case R.id.left:
+                route.setRouteName(routeName);
+                route.setDirection("left");
+                addRouteToDb(currentLocation,route);
+                break;
+            case R.id.right:
+                route.setRouteName(routeName);
+                route.setDirection("right");
+                addRouteToDb(currentLocation,route);
+                break;
+            case R.id.finish:
+                route.setRouteName(routeName);
+                route.setDirection("finish");
+                addRouteToDb(currentLocation,route);
+                break;
         }
     }
 
     @Override
-    public void fetchAllData(List<LocationD> locations) {
-        mMap.clear();
-        Toast.makeText(this,String.valueOf(locations.size()),Toast.LENGTH_LONG);
-        for (int i = 0;i<locations.size();i++){
-            LocationD location = locations.get(i);
-            LatLng latLng =  new LatLng(location.getLattitude(),location.getLongitude());
-            mMap.addMarker(new MarkerOptions().position(latLng).title("Marker in "+i));
+    public void fetchRouteInfo(ArrayList<RouteInfo> routeInfos) {
+
+        List<LatLng> points = new ArrayList<LatLng>();
+        for (int i=0;i<routeInfos.size();i++){
+            LocationD locationD = routeInfos.get(i).getLocationD();
+            LatLng latLng = new LatLng(locationD.getLattitude(),locationD.getLongitude());
+            points.add(latLng);
         }
+        drawLine(points);
+    }
+
+    public void drawLine(List<LatLng> points) {
+        if (points == null) {
+            Log.e("Draw Line", "got null as parameters");
+            return;
+        }
+
+        Polyline line = mMap.addPolyline(new PolylineOptions().width(3).color(Color.RED));
+        line.setPoints(points);
     }
 }

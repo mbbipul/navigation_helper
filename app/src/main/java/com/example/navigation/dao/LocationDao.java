@@ -11,14 +11,24 @@ import java.util.List;
 
 @Dao
 public interface LocationDao {
+
     @Query("SELECT * FROM location")
     List<LocationD> getAll();
+
+    @Query("SELECT * FROM location WHERE id == :id")
+    LocationD getLocationById(Long id);
 
     @Query("SELECT COUNT(*) from location")
     int countUsers();
 
+    @Query("DELETE from location")
+    void deleteAll();
+
     @Insert
-    void insertAll(LocationD... users);
+    List<Long> insertAll(LocationD... locationDS);
+
+    @Insert
+    Long insertOne(LocationD locationD);
 
     @Delete
     void delete(LocationD locationD);
