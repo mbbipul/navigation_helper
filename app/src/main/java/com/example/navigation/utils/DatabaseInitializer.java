@@ -20,9 +20,13 @@ public class DatabaseInitializer  {
         this.db = db;
         this.databaseListner = databaseListner;
     }
+    public DatabaseInitializer( AppDatabase db){
+        this.db = db;
+    }
 
-    public void populateAsync(Location location,Route route) {
-        PopulateDbAsync task = new PopulateDbAsync(location,route);
+
+    public void populateAsync(Location location,Route route,String routeName) {
+        PopulateDbAsync task = new PopulateDbAsync(location,route,routeName);
         task.execute();
     }
 
@@ -49,11 +53,26 @@ public class DatabaseInitializer  {
 
     }
 
-    public static ArrayList<RouteInfo> getAllRouteInfo(){
+    public  void deleteRoute(String routename){
+
+    }
+
+    public ArrayList<String> getAllRouteName(){
+
+        ArrayList<String> routesName = new ArrayList<String>();
+        List<String> routeNames = db.routeDao().getAllRouteName();
+
+        for(int i=0;i<routeNames.size();i++){
+            routesName.add(routeNames.get(i));
+        }
+        return routesName;
+    }
+
+    public static ArrayList<RouteInfo> getAllRouteInfo(String routename){
 
         ArrayList<RouteInfo> routeInfos = new ArrayList<RouteInfo>();
 
-        List<Route> routes = db.routeDao().getRoutesByRouteName("home");
+        List<Route> routes = db.routeDao().getRoutesByRouteName(routename);
 
         for (int i=0;i<routes.size();i++){
 
@@ -79,16 +98,18 @@ public class DatabaseInitializer  {
 
         private Location location;
         private Route route;
+        private String routeName;
 
-        PopulateDbAsync(Location location,Route route) {
+        PopulateDbAsync(Location location,Route route,String routename) {
             this.location = location;
             this.route = route;
+            this.routeName = routename;
         }
 
         @Override
         protected ArrayList<RouteInfo> doInBackground(ArrayList<RouteInfo>... routeinfo) {
             addLocation(db,location,route);
-            return getAllRouteInfo();
+            return getAllRouteInfo(routeName);
         }
 
         @Override

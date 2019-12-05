@@ -5,6 +5,10 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 
+import com.example.navigation.database.AppDatabase;
+import com.example.navigation.utils.DatabaseInitializer;
+import com.example.navigation.utils.DatabaseListner;
+import com.example.navigation.utils.RouteInfo;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -20,8 +24,15 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class RoutesActivity extends AppCompatActivity {
+import java.util.ArrayList;
 
+public class RoutesActivity extends AppCompatActivity  {
+
+
+    DatabaseInitializer database;
+
+    ArrayAdapter<String> adapter;
+    ListView listView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,9 +52,10 @@ public class RoutesActivity extends AppCompatActivity {
             }
         });
 
+        database = new DatabaseInitializer(AppDatabase.getAppDatabase(this));
 
-        String[] routes = {"home","work","home","work","home","work"};
-        ListView listView = (ListView) findViewById(R.id.routelist);
+
+        listView = (ListView) findViewById(R.id.routelist);
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -53,16 +65,20 @@ public class RoutesActivity extends AppCompatActivity {
                 stringText= ((TextView)view).getText().toString();
 
                 //show selected
-                Intent addRoutesPoint = new Intent(RoutesActivity.this,AddRoutePointsActivity.class);
-                addRoutesPoint.putExtra("routeName",stringText);
+                Intent addRoutesPoint = new Intent(RoutesActivity.this,MapsActivity.class);
+                addRoutesPoint.putExtra("routename",stringText);
                 startActivity(addRoutesPoint);
             }
         });
+        updaterouteList();
 
-        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+    }
+
+    private void updaterouteList(){
+        ArrayList<String> routes = database.getAllRouteName();
+        adapter = new ArrayAdapter<String>(this,
                 android.R.layout.simple_list_item_1, routes);
         listView.setAdapter(adapter);
-
     }
 
     private void showInputDialouge(final EditText editText){
@@ -88,4 +104,9 @@ public class RoutesActivity extends AppCompatActivity {
                 .show();
     }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+        updaterouteList();
+    }
 }

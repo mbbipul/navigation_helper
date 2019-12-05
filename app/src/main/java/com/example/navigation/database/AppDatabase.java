@@ -11,7 +11,7 @@ import com.example.navigation.entity.LocationD;
 import com.example.navigation.dao.LocationDao;
 import com.example.navigation.entity.Route;
 
-@Database(entities = {LocationD.class, Route.class}, version = 2)
+@Database(entities = {LocationD.class, Route.class}, version = 1,exportSchema = false)
 public abstract class AppDatabase extends RoomDatabase{
 
     private static AppDatabase INSTANCE;

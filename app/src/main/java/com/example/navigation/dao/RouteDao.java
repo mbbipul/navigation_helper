@@ -18,6 +18,9 @@ public interface RouteDao {
     @Query("SELECT COUNT(*) from routes")
     int countUsers();
 
+    @Query("SELECT DISTINCT routename FROM routes")
+    List<String> getAllRouteName();
+
     @Query("SELECT * FROM routes WHERE routename == :routeName ORDER BY time ")
     List<Route> getRoutesByRouteName(String routeName);
 

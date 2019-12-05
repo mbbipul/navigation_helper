@@ -2,6 +2,8 @@ package com.example.navigation;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
@@ -15,6 +17,8 @@ import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
@@ -41,7 +45,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLocationButtonClickListener,
+public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLocationButtonClickListener,
         GoogleMap.OnMyLocationClickListener, OnMapReadyCallback,DatabaseListner, View.OnClickListener {
 
     private GoogleMap mMap;
@@ -79,7 +83,6 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
         addRouteFinishButton.setOnClickListener(this);
 
         database = new DatabaseInitializer(AppDatabase.getAppDatabase(this),this);
-        database.removeAll();
         DebugDB.getAddressLog();
 
 
@@ -214,7 +217,7 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
     }
 
     private void addRouteToDb(Location location,Route route){
-        database.populateAsync(location,route);
+        database.populateAsync(location,route,route.getRouteName());
     }
 
     protected void onResume() {
@@ -283,5 +286,24 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
 
         Polyline line = mMap.addPolyline(new PolylineOptions().width(3).color(Color.RED));
         line.setPoints(points);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // R.menu.mymenu is a reference to an xml file named mymenu.xml which should be inside your res/menu directory.
+        // If you don't have res/menu, just create a directory named "menu" inside res
+        getMenuInflater().inflate(R.menu.route_menu, menu);
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    // handle button activities
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        if (id == R.id.delete) {
+            // do something here
+        }
+        return super.onOptionsItemSelected(item);
     }
 }
