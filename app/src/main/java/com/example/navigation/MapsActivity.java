@@ -69,9 +69,9 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
         mapFragment.getMapAsync(this);
 
         addRouteStartButton  = findViewById(R.id.start);
-        addRouteLeftButton   = findViewById(R.id.start);
-        addRouteRightButton  = findViewById(R.id.start);
-        addRouteFinishButton = findViewById(R.id.start);
+        addRouteLeftButton   = findViewById(R.id.left);
+        addRouteRightButton  = findViewById(R.id.right);
+        addRouteFinishButton = findViewById(R.id.finish);
 
         addRouteStartButton.setOnClickListener(this);
         addRouteLeftButton.setOnClickListener(this);
@@ -84,6 +84,7 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
 
 
         routeName = intent.getStringExtra("routename");
+        Toast.makeText(this, routeName, Toast.LENGTH_SHORT).show();
 
     }
 
@@ -101,7 +102,7 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
     public void onMapReady(GoogleMap googleMap) {
         // Authenticate with Firebase when the Google map is loaded
         mMap = googleMap;
-        mMap.setMaxZoomPreference(16);
+        mMap.setMaxZoomPreference(30);
         mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
         if(checkLocationPermission()){
             mMap.setMyLocationEnabled(true);
@@ -229,28 +230,34 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
     @Override
     public void onClick(View v) {
         int viewId = v.getId();
-        Route route = new Route();
 
         switch (viewId){
             case R.id.start:
+                Route route = new Route();
                 route.setRouteName(routeName);
                 route.setDirection("move");
                 addRouteToDb(currentLocation,route);
+                addRouteLeftButton.setEnabled(true);
+                addRouteRightButton.setEnabled(true);
+                addRouteFinishButton.setEnabled(true);
                 break;
             case R.id.left:
-                route.setRouteName(routeName);
-                route.setDirection("left");
-                addRouteToDb(currentLocation,route);
+                Route route2 = new Route();
+                route2.setRouteName(routeName);
+                route2.setDirection("left");
+                addRouteToDb(currentLocation,route2);
                 break;
             case R.id.right:
-                route.setRouteName(routeName);
-                route.setDirection("right");
-                addRouteToDb(currentLocation,route);
+                Route route3 = new Route();
+                route3.setRouteName(routeName);
+                route3.setDirection("right");
+                addRouteToDb(currentLocation,route3);
                 break;
             case R.id.finish:
-                route.setRouteName(routeName);
-                route.setDirection("finish");
-                addRouteToDb(currentLocation,route);
+                Route route4 = new Route();
+                route4.setRouteName(routeName);
+                route4.setDirection("finish");
+                addRouteToDb(currentLocation,route4);
                 break;
         }
     }
@@ -264,6 +271,7 @@ public class MapsActivity extends FragmentActivity implements GoogleMap.OnMyLoca
             LatLng latLng = new LatLng(locationD.getLattitude(),locationD.getLongitude());
             points.add(latLng);
         }
+        Toast.makeText(this, "draw line", Toast.LENGTH_SHORT).show();
         drawLine(points);
     }
 

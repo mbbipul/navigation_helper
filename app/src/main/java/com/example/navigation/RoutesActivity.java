@@ -36,7 +36,7 @@ public class RoutesActivity extends AppCompatActivity {
             public void onClick(View view) {
                 final EditText txtUrl = new EditText(RoutesActivity.this);
 
-                txtUrl.setHint("biplku");
+                txtUrl.setHint("Home");
                 showInputDialouge(txtUrl);
             }
         });
@@ -73,8 +73,12 @@ public class RoutesActivity extends AppCompatActivity {
                 .setView(editText)
                 .setPositiveButton("Add", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int whichButton) {
-                        String url = editText.getText().toString();
-                        Toast.makeText(RoutesActivity.this, url, Toast.LENGTH_SHORT).show();
+                        String name = editText.getText().toString();
+                        Toast.makeText(RoutesActivity.this, name, Toast.LENGTH_SHORT).show();
+
+                        Intent intent = new Intent(RoutesActivity.this,MapsActivity.class);
+                        intent.putExtra("routename",name);
+                        startActivity(intent);
                     }
                 })
                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
