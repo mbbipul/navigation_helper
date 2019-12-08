@@ -35,6 +35,9 @@ public class DatabaseInitializer  {
         return locations;
     }
 
+    public void drawRoute(String routename){
+        databaseListner.fetchRouteInfo(getAllRouteInfo(routename));
+    }
     private static void addLocation(final AppDatabase db, Location location,Route route) {
         LocationD locationD = new LocationD();
 
@@ -54,7 +57,6 @@ public class DatabaseInitializer  {
     }
 
     public  void deleteRoute(String routename){
-
     }
 
     public ArrayList<String> getAllRouteName(){

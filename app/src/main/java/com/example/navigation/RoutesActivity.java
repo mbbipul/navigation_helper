@@ -67,6 +67,7 @@ public class RoutesActivity extends AppCompatActivity  {
                 //show selected
                 Intent addRoutesPoint = new Intent(RoutesActivity.this,MapsActivity.class);
                 addRoutesPoint.putExtra("routename",stringText);
+                addRoutesPoint.putExtra("viewmode",true);
                 startActivity(addRoutesPoint);
             }
         });

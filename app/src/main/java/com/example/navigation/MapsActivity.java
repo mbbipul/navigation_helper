@@ -21,6 +21,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.amitshekhar.DebugDB;
@@ -39,6 +40,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
@@ -61,6 +63,9 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             addRouteFinishButton;
 
     String routeName;
+    Boolean viewMode;
+
+    LinearLayout linearLayout;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,6 +82,8 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
         addRouteRightButton  = findViewById(R.id.right);
         addRouteFinishButton = findViewById(R.id.finish);
 
+        linearLayout = findViewById(R.id.bottom_button);
+
         addRouteStartButton.setOnClickListener(this);
         addRouteLeftButton.setOnClickListener(this);
         addRouteRightButton.setOnClickListener(this);
@@ -87,6 +94,14 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
 
 
         routeName = intent.getStringExtra("routename");
+        viewMode = intent.getBooleanExtra("viewmode",false);
+        if(viewMode){
+            addRouteStartButton.setVisibility(View.GONE);
+            addRouteLeftButton.setVisibility(View.GONE);
+            addRouteRightButton.setVisibility(View.GONE);
+            addRouteFinishButton.setVisibility(View.GONE);
+        }
+
         Toast.makeText(this, routeName, Toast.LENGTH_SHORT).show();
 
     }
@@ -110,6 +125,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
         if(checkLocationPermission()){
             mMap.setMyLocationEnabled(true);
             requestLocationUpdates();
+            database.drawRoute(routeName);
         }
 
     }
@@ -261,6 +277,10 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                 route4.setRouteName(routeName);
                 route4.setDirection("finish");
                 addRouteToDb(currentLocation,route4);
+                addRouteStartButton.setEnabled(false);
+                addRouteLeftButton.setEnabled(false);
+                addRouteRightButton.setEnabled(false);
+                addRouteFinishButton.setEnabled(false);
                 break;
         }
     }
@@ -269,12 +289,22 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     public void fetchRouteInfo(ArrayList<RouteInfo> routeInfos) {
 
         List<LatLng> points = new ArrayList<LatLng>();
+        MarkerOptions options = new MarkerOptions();
+
         for (int i=0;i<routeInfos.size();i++){
             LocationD locationD = routeInfos.get(i).getLocationD();
             LatLng latLng = new LatLng(locationD.getLattitude(),locationD.getLongitude());
             points.add(latLng);
         }
         Toast.makeText(this, "draw line", Toast.LENGTH_SHORT).show();
+        int i=0;
+        for (LatLng point : points) {
+            options.position(point);
+            options.title(String.valueOf(i));
+            options.snippet("someDesc");
+            mMap.addMarker(options);
+            i++;
+        }
         drawLine(points);
     }
 
