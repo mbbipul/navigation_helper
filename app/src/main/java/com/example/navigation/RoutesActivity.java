@@ -1,21 +1,19 @@
 package com.example.navigation;
 
-import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 
 import com.example.navigation.database.AppDatabase;
 import com.example.navigation.utils.DatabaseInitializer;
-import com.example.navigation.utils.DatabaseListner;
-import com.example.navigation.utils.RouteInfo;
+import com.example.navigation.utils.SocketHelper;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -24,7 +22,13 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
+
+import io.socket.client.Socket;
+import io.socket.emitter.Emitter;
 
 public class RoutesActivity extends AppCompatActivity  {
 
@@ -33,6 +37,8 @@ public class RoutesActivity extends AppCompatActivity  {
 
     ArrayAdapter<String> adapter;
     ListView listView;
+    Socket mSocket;
+    private Boolean isConnected = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +78,15 @@ public class RoutesActivity extends AppCompatActivity  {
             }
         });
         updaterouteList();
+        SocketHelper app = new SocketHelper();
+        mSocket = app.getSocket();
+        mSocket.on(Socket.EVENT_CONNECT,onConnect);
+        mSocket.on(Socket.EVENT_DISCONNECT,onDisconnect);
+        mSocket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
+        mSocket.on(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
+        mSocket.on("distance", onNewMessage);
+
+        mSocket.connect();
 
     }
 
@@ -109,5 +124,94 @@ public class RoutesActivity extends AppCompatActivity  {
     protected void onStart() {
         super.onStart();
         updaterouteList();
+    }
+    private Emitter.Listener onConnect = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if(!isConnected) {
+                        mSocket.emit("add user", "android apps");
+                        Toast.makeText(RoutesActivity.this,
+                                "connect", Toast.LENGTH_LONG).show();
+                        isConnected = true;
+                    }
+                }
+            });
+        }
+    };
+
+    private Emitter.Listener onDisconnect = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.i("ANDROID", "diconnected");
+                    isConnected = false;
+                    Toast.makeText(RoutesActivity.this,
+                            "disconnected", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+    };
+
+    private Emitter.Listener onConnectError = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.e("ANDROID", "Error connecting");
+                    Toast.makeText(RoutesActivity.this,
+                            "eroor connect", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+    };
+
+    private Emitter.Listener onNewMessage = new Emitter.Listener() {
+        @Override
+        public void call(final Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    JSONObject data = (JSONObject) args[0];
+                    double distance;
+                    try {
+                        distance = data.getDouble("distance");
+                        Toast.makeText(RoutesActivity.this, String.valueOf(distance), Toast.LENGTH_SHORT).show();
+                    } catch (JSONException e) {
+                        Log.e("Message", e.getMessage());
+                        return;
+                    }
+                }
+            });
+        }
+    };
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        mSocket.disconnect();
+
+        mSocket.off(Socket.EVENT_CONNECT, onConnect);
+        mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
+        mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
+        mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
+        mSocket.off("new message", onNewMessage);
+    }
+    @Override
+    public void onPause(){
+        super.onDestroy();
+
+        mSocket.disconnect();
+
+        mSocket.off(Socket.EVENT_CONNECT, onConnect);
+        mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
+        mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
+        mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
+        mSocket.off("new message", onNewMessage);
     }
 }
