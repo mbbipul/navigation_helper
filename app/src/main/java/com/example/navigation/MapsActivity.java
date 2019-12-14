@@ -15,6 +15,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -28,6 +29,7 @@ import com.amitshekhar.DebugDB;
 import com.example.navigation.database.AppDatabase;
 import com.example.navigation.entity.LocationD;
 import com.example.navigation.entity.Route;
+import com.example.navigation.navigation.NavRoute;
 import com.example.navigation.utils.DatabaseInitializer;
 import com.example.navigation.utils.DatabaseListner;
 import com.example.navigation.utils.RouteInfo;
@@ -36,10 +38,14 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
@@ -102,7 +108,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             addRouteFinishButton.setVisibility(View.GONE);
         }
 
-        Toast.makeText(this, routeName, Toast.LENGTH_SHORT).show();
+      //  Toast.makeText(this, routeName, Toast.LENGTH_SHORT).show();
 
     }
 
@@ -118,15 +124,53 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
      */
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        // Authenticate with Firebase when the Google map is loaded
         mMap = googleMap;
         mMap.setMaxZoomPreference(30);
         mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+
         if(checkLocationPermission()){
             mMap.setMyLocationEnabled(true);
             requestLocationUpdates();
             database.drawRoute(routeName);
         }
+
+        if(!viewMode){
+            mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+                @Override
+                public void onMapClick(LatLng latLng) {
+
+                    Location location = new Location(LocationManager.GPS_PROVIDER);
+                    location.setLatitude(latLng.latitude);
+                    location.setLongitude(latLng.longitude);
+
+                    mMap.addMarker(new MarkerOptions().position(latLng).title("Marker in Current"));
+                    Route route = new Route();
+                    route.setRouteName(routeName);
+                    route.setDirection("drag");
+                    addRouteToDb(location,route);
+                    mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+                }
+            });
+
+            mMap.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
+                @Override
+                public void onMarkerDragStart(Marker arg0) {
+                }
+
+                @SuppressWarnings("unchecked")
+                @Override
+                public void onMarkerDragEnd(Marker arg0) {
+                    Log.d("System out", "onMarkerDragEnd...");
+                    mMap.animateCamera(CameraUpdateFactory.newLatLng(arg0.getPosition()));
+
+                }
+
+                @Override
+                public void onMarkerDrag(Marker arg0) {
+                }
+            });
+        }
+
 
     }
 
@@ -137,13 +181,9 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
 
-            // Should we show an explanation?
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                     Manifest.permission.ACCESS_FINE_LOCATION)) {
 
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
                 new AlertDialog.Builder(this)
                         .setTitle("Enable location")
                         .setMessage("please enable location service")
@@ -161,7 +201,6 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
 
 
             } else {
-                // No explanation needed, we can request the permission.
                 ActivityCompat.requestPermissions(this,
                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                         MY_PERMISSIONS_REQUEST_LOCATION);
@@ -288,15 +327,55 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     @Override
     public void fetchRouteInfo(ArrayList<RouteInfo> routeInfos) {
 
+        ArrayList<Location> locations = new ArrayList<>();
+
         List<LatLng> points = new ArrayList<LatLng>();
-        MarkerOptions options = new MarkerOptions();
+        final MarkerOptions options = new MarkerOptions();
 
         for (int i=0;i<routeInfos.size();i++){
             LocationD locationD = routeInfos.get(i).getLocationD();
+
+            Location location = new Location(LocationManager.GPS_PROVIDER);
+            location.setLatitude(locationD.getLattitude());
+            location.setLongitude(locationD.getLongitude());
+            location.setAltitude(locationD.getAltitude());
+            locations.add(location);
+
             LatLng latLng = new LatLng(locationD.getLattitude(),locationD.getLongitude());
             points.add(latLng);
         }
-        Toast.makeText(this, "draw line", Toast.LENGTH_SHORT).show();
+        final NavRoute navRoute = new NavRoute(locations,1,this);
+
+        LocationRequest request = new LocationRequest();
+        request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
+        client.requestLocationUpdates(request, new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                Location location = locationResult.getLastLocation();
+                if (location != null) {
+                    Log.d("TAG", "location update " + location);
+//                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
+//                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
+//                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+                    int index = navRoute.getMinimumDistancePointIndex(location);
+
+                    Toast.makeText(MapsActivity.this, String.valueOf(index), Toast.LENGTH_SHORT).show();
+
+                    mMap.addCircle(new CircleOptions()
+                        .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
+                                ,navRoute.getPointLocation(index).getLongitude()))
+                            .radius(10)
+                            .strokeColor(Color.RED)
+                            .fillColor(Color.BLUE)
+                    );
+                }
+
+            }
+        }, null);
+
+
+
         int i=0;
         for (LatLng point : points) {
             options.position(point);

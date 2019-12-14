@@ -1,13 +1,20 @@
 package com.example.navigation;
 
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
+import android.media.AudioManager;
+import android.os.Build;
 import android.os.Bundle;
 
 import com.example.navigation.database.AppDatabase;
 import com.example.navigation.utils.DatabaseInitializer;
 import com.example.navigation.utils.SocketHelper;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.vikramezhil.droidspeech.DroidSpeech;
+import com.vikramezhil.droidspeech.OnDSListener;
+import com.vikramezhil.droidspeech.OnDSPermissionsListener;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -26,11 +33,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
 
-public class RoutesActivity extends AppCompatActivity  {
+public class RoutesActivity extends AppCompatActivity {
 
 
     DatabaseInitializer database;
@@ -39,7 +47,6 @@ public class RoutesActivity extends AppCompatActivity  {
     ListView listView;
     Socket mSocket;
     private Boolean isConnected = true;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -78,15 +85,17 @@ public class RoutesActivity extends AppCompatActivity  {
             }
         });
         updaterouteList();
-        SocketHelper app = new SocketHelper();
-        mSocket = app.getSocket();
-        mSocket.on(Socket.EVENT_CONNECT,onConnect);
-        mSocket.on(Socket.EVENT_DISCONNECT,onDisconnect);
-        mSocket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
-        mSocket.on(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
-        mSocket.on("distance", onNewMessage);
+//        SocketHelper app = new SocketHelper();
+//        mSocket = app.getSocket();
+//        mSocket.on(Socket.EVENT_CONNECT,onConnect);
+//        mSocket.on(Socket.EVENT_DISCONNECT,onDisconnect);
+//        mSocket.on(Socket.EVENT_CONNECT_ERROR, onConnectError);
+//        mSocket.on(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
+//        mSocket.on("distance", onNewMessage);
 
-        mSocket.connect();
+        //mSocket.connect();
+
+
 
     }
 
@@ -111,6 +120,8 @@ public class RoutesActivity extends AppCompatActivity  {
                         Intent intent = new Intent(RoutesActivity.this,MapsActivity.class);
                         intent.putExtra("routename",name);
                         startActivity(intent);
+
+
                     }
                 })
                 .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
@@ -190,28 +201,30 @@ public class RoutesActivity extends AppCompatActivity  {
             });
         }
     };
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
+//    @Override
+//    public void onDestroy() {
+//        super.onDestroy();
+//
+//        mSocket.disconnect();
+//
+//        mSocket.off(Socket.EVENT_CONNECT, onConnect);
+//        mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
+//        mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
+//        mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
+//        mSocket.off("new message", onNewMessage);
+//    }
+//    @Override
+//    public void onPause() {
+//        super.onPause();
+//
+//        mSocket.disconnect();
+//
+//        mSocket.off(Socket.EVENT_CONNECT, onConnect);
+//        mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
+//        mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
+//        mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
+//        mSocket.off("new message", onNewMessage);
+//    }
 
-        mSocket.disconnect();
 
-        mSocket.off(Socket.EVENT_CONNECT, onConnect);
-        mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
-        mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
-        mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
-        mSocket.off("new message", onNewMessage);
-    }
-    @Override
-    public void onPause(){
-        super.onDestroy();
-
-        mSocket.disconnect();
-
-        mSocket.off(Socket.EVENT_CONNECT, onConnect);
-        mSocket.off(Socket.EVENT_DISCONNECT, onDisconnect);
-        mSocket.off(Socket.EVENT_CONNECT_ERROR, onConnectError);
-        mSocket.off(Socket.EVENT_CONNECT_TIMEOUT, onConnectError);
-        mSocket.off("new message", onNewMessage);
-    }
 }

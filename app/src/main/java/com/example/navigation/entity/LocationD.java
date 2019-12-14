@@ -11,19 +11,19 @@ public class LocationD {
     private  int id;
 
     @ColumnInfo(name = "lattiude")
-    private double lattitude;
+    private double lattitude ;
 
     @ColumnInfo(name = "longitude")
     private double longitude;
 
     @ColumnInfo(name = "altitude")
-    private double altitude;
+    private double altitude = 0;
 
     @ColumnInfo(name = "bearing")
-    private float bearing;
+    private float bearing = 0;
 
     @ColumnInfo(name = "speed")
-    private float speed;
+    private float speed = 0;
 
     public int getId() {
         return id;
