@@ -3,17 +3,18 @@ package com.example.navigation;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 
+import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
@@ -32,6 +33,7 @@ import com.example.navigation.entity.Route;
 import com.example.navigation.navigation.NavRoute;
 import com.example.navigation.utils.DatabaseInitializer;
 import com.example.navigation.utils.DatabaseListner;
+import com.example.navigation.utils.LocationIndex;
 import com.example.navigation.utils.RouteInfo;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -42,7 +44,6 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -138,7 +139,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
                 @Override
                 public void onMapClick(LatLng latLng) {
-
+                    addRouteFinishButton.setEnabled(true);
                     Location location = new Location(LocationManager.GPS_PROVIDER);
                     location.setLatitude(latLng.latitude);
                     location.setLongitude(latLng.longitude);
@@ -312,10 +313,10 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                 addRouteToDb(currentLocation,route3);
                 break;
             case R.id.finish:
-                Route route4 = new Route();
-                route4.setRouteName(routeName);
-                route4.setDirection("finish");
-                addRouteToDb(currentLocation,route4);
+//                Route route4 = new Route();
+//                route4.setRouteName(routeName);
+//                route4.setDirection("finish");
+//                addRouteToDb(currentLocation,route4);
                 addRouteStartButton.setEnabled(false);
                 addRouteLeftButton.setEnabled(false);
                 addRouteRightButton.setEnabled(false);
@@ -344,49 +345,78 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             LatLng latLng = new LatLng(locationD.getLattitude(),locationD.getLongitude());
             points.add(latLng);
         }
-        final NavRoute navRoute = new NavRoute(locations,1,this);
+        if (viewMode){
+            final NavRoute navRoute = new NavRoute(locations,1,this);
 
-        LocationRequest request = new LocationRequest();
-        request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
-        client.requestLocationUpdates(request, new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                Location location = locationResult.getLastLocation();
-                if (location != null) {
-                    Log.d("TAG", "location update " + location);
-//                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
-//                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
-//                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-                    int index = navRoute.getMinimumDistancePointIndex(location);
+            LocationRequest request = new LocationRequest();
+            request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+            FusedLocationProviderClient clients = LocationServices.getFusedLocationProviderClient(this);
+            clients.requestLocationUpdates(request, new LocationCallback() {
+                @Override
+                public void onLocationResult(LocationResult locationResult) {
+                    Location location = locationResult.getLastLocation();
+                    if (location != null) {
+                        Log.d("TAG", "location update " + location);
+                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
+                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
+                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+                        int index = navRoute.getNearestPointIndex(location);
 
-                    Toast.makeText(MapsActivity.this, String.valueOf(index), Toast.LENGTH_SHORT).show();
+                        List<LocationIndex> locationIndexs = navRoute.getNearest3Point(location);
+                                //navRoute.getNearestpointLocation(location);
 
-                    mMap.addCircle(new CircleOptions()
-                        .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
-                                ,navRoute.getPointLocation(index).getLongitude()))
-                            .radius(10)
-                            .strokeColor(Color.RED)
-                            .fillColor(Color.BLUE)
-                    );
+                        Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
+
+                        String res = "";
+                        for(LocationIndex x : locationIndexs){
+                            LatLng latLng = new LatLng(x.getLocation().getLatitude(), x.getLocation().getLongitude());
+                            res += String.valueOf(x.getIndex()+ " " +"\n");
+                            mMap.addMarker(new MarkerOptions().position(latLng).title(String.valueOf(x.getIndex())).snippet("Marker in index"));
+                           // mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+                        }
+                        //Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
+
+                        mMap.addCircle(new CircleOptions()
+                                .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
+                                        ,navRoute.getPointLocation(index).getLongitude()))
+                                .radius(3)
+                                .strokeColor(Color.RED)
+                                .fillColor(Color.BLUE)
+                        );
+                        Bitmap bitmap = getBitmap(R.drawable.ic_directions_run_black_24dp);
+                        //Toast.makeText(MapsActivity.this, String.valueOf(navRoute.getAllpointLatLngs().size()), Toast.LENGTH_SHORT).show();
+                        navRoute.setAnimation(mMap,navRoute.getAllpointLatLngs(),bitmap);
+                    }
+
                 }
-
-            }
-        }, null);
+            }, null);
 
 
+
+        }
 
         int i=0;
-        for (LatLng point : points) {
-            options.position(point);
-            options.title(String.valueOf(i));
-            options.snippet("someDesc");
-            mMap.addMarker(options);
-            i++;
-        }
+//        for (LatLng point : points) {
+//            options.position(point);
+//            options.title(String.valueOf(i));
+//            options.snippet("someDesc");
+//            mMap.addMarker(options);
+//            i++;
+//        }
         drawLine(points);
     }
 
+
+    private Bitmap getBitmap(int drawableRes) {
+        Drawable drawable = getResources().getDrawable(drawableRes);
+        Canvas canvas = new Canvas();
+        Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        canvas.setBitmap(bitmap);
+        drawable.setBounds(0, 0, drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+        drawable.draw(canvas);
+
+        return bitmap;
+    }
     public void drawLine(List<LatLng> points) {
         if (points == null) {
             Log.e("Draw Line", "got null as parameters");
