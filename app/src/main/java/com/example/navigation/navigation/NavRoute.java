@@ -129,6 +129,7 @@ public class NavRoute {
     public Location getPointLocation(int i){
         return routePoints.get(i);
     }
+
     private double distance(Location srcLocation,Location destlocation) {
         double lat1 = srcLocation.getLatitude(),
                 lon1 = srcLocation.getLongitude(),
@@ -233,30 +234,55 @@ public class NavRoute {
         return smallestLocation;
 
     }
+
+    //using vertical line
+//    public List<LocationIndex> getNearest3Point(Location currentLocation){
+//        List<LocationIndex> locationIndices = getNearest3PointLocationIndex(currentLocation);
+//        List<LocationIndex> nearestLocationIndices = new ArrayList<>();
+//        nearestLocationIndices.add(locationIndices.get(0));
+//
+//        LocationIndex loc = locationIndices.get(0);
+//
+//        for (int i = 1;i<locationIndices.size();i++){
+//            LocationIndex otherLoc = locationIndices.get(i);
+//
+//            Geometry geometry = new Geometry(
+//                    loc.getLocation(),otherLoc.getLocation(),currentLocation);
+//
+//            Location location = new Location(LocationManager.GPS_PROVIDER);
+//            location.setLatitude(geometry.getX());
+//            location.setLongitude(geometry.getY());
+//            LocationIndex locationIndex = new LocationIndex(location,i-3);
+//            nearestLocationIndices.add(locationIndex);
+//        }
+//
+//
+//        return nearestLocationIndices;
+//    }
+
     public List<LocationIndex> getNearest3Point(Location currentLocation){
         List<LocationIndex> locationIndices = getNearest3PointLocationIndex(currentLocation);
         List<LocationIndex> nearestLocationIndices = new ArrayList<>();
-        nearestLocationIndices.add(locationIndices.get(0));
-
         LocationIndex loc = locationIndices.get(0);
+        nearestLocationIndices.add(loc);
 
+        LatLng locLatLng = new LatLng(loc.getLocation().getLatitude(),loc.getLocation().getLongitude());
         for (int i = 1;i<locationIndices.size();i++){
             LocationIndex otherLoc = locationIndices.get(i);
+            System.out.println(otherLoc.getLocation().getLatitude());
 
-            Geometry geometry = new Geometry(
-                    loc.getLocation(),otherLoc.getLocation(),currentLocation);
-
+            LatLng midPoint = midPoint(locLatLng.latitude,locLatLng.longitude,otherLoc.getLocation().getLatitude(),otherLoc.getLocation().getLongitude());
+            System.out.println(midPoint);
             Location location = new Location(LocationManager.GPS_PROVIDER);
-            location.setLatitude(geometry.getX());
-            location.setLongitude(geometry.getY());
-            LocationIndex locationIndex = new LocationIndex(location,i-3);
+            location.setLatitude(midPoint.latitude);
+            location.setLongitude(midPoint.longitude);
+            LocationIndex locationIndex = new LocationIndex(location,otherLoc.getIndex());
             nearestLocationIndices.add(locationIndex);
         }
 
 
         return nearestLocationIndices;
     }
-
 
     public List<LocationIndex> getNearest3PointLocationIndex(Location currentLocation){
         List<LocationIndex> locationIndices = getNearest3IndexLocation(currentLocation );
@@ -308,4 +334,19 @@ public class NavRoute {
 
     }
 
+    public LatLng midPoint(double lat1,double lon1,double lat2,double lon2){
+
+        double dLon = Math.toRadians(lon2 - lon1);
+
+        //convert to radians
+        lat1 = Math.toRadians(lat1);
+        lat2 = Math.toRadians(lat2);
+        lon1 = Math.toRadians(lon1);
+
+        double Bx = Math.cos(lat2) * Math.cos(dLon);
+        double By = Math.cos(lat2) * Math.sin(dLon);
+        double lat3 = Math.atan2(Math.sin(lat1) + Math.sin(lat2), Math.sqrt((Math.cos(lat1) + Bx) * (Math.cos(lat1) + Bx) + By * By));
+        double lon3 = lon1 + Math.atan2(By, Math.cos(lat1) + Bx);
+        return new LatLng(Math.toDegrees(lat3), Math.toDegrees(lon3));
+    }
 }

@@ -355,6 +355,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                 @Override
                 public void onLocationResult(LocationResult locationResult) {
                     Location location = locationResult.getLastLocation();
+
                     if (location != null) {
                         Log.d("TAG", "location update " + location);
                         LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
@@ -365,7 +366,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                         List<LocationIndex> locationIndexs = navRoute.getNearest3Point(location);
                                 //navRoute.getNearestpointLocation(location);
 
-                        Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
+                       // Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
 
                         String res = "";
                         for(LocationIndex x : locationIndexs){
@@ -374,7 +375,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                             mMap.addMarker(new MarkerOptions().position(latLng).title(String.valueOf(x.getIndex())).snippet("Marker in index"));
                            // mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
                         }
-                        //Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
+                        Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
 
                         mMap.addCircle(new CircleOptions()
                                 .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
