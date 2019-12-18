@@ -239,7 +239,7 @@ public class NavRoute {
         nearestLocationIndices.add(locationIndices.get(0));
 
         LocationIndex loc = locationIndices.get(0);
-        LocationIndex currentLoc = new LocationIndex(currentLocation,-4);
+
         for (int i = 1;i<locationIndices.size();i++){
             LocationIndex otherLoc = locationIndices.get(i);
 
