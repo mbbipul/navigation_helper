@@ -10,6 +10,7 @@ import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.Toast;
 
+import com.example.navigation.utils.Distance;
 import com.example.navigation.utils.Geometry;
 import com.example.navigation.utils.LocationIndex;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -21,7 +22,10 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public class NavRoute {
@@ -109,12 +113,12 @@ public class NavRoute {
     public void addRoutePoint(Location location){ routePoints.add(location); }
 
     public int getNearestPointIndex(Location cLocation){
-
+        Distance distance = new Distance();
         int minIndex = 0;
         int i =0;
-        double smallest = distance(cLocation,routePoints.get(0));
+        double smallest = distance.distance(cLocation,routePoints.get(0));
         for(Location x : routePoints ){
-            double dis = distance(cLocation,x);
+            double dis = distance.distance(cLocation,x);
             if (dis < smallest) {
                 smallest = dis;
                 minIndex = i;
@@ -130,30 +134,7 @@ public class NavRoute {
         return routePoints.get(i);
     }
 
-    private double distance(Location srcLocation,Location destlocation) {
-        double lat1 = srcLocation.getLatitude(),
-                lon1 = srcLocation.getLongitude(),
-                lat2 = destlocation.getLatitude(),
-                lon2 = destlocation.getLongitude();
-        double theta = lon1 - lon2;
-        double dist = Math.sin(deg2rad(lat1))
-                * Math.sin(deg2rad(lat2))
-                + Math.cos(deg2rad(lat1))
-                * Math.cos(deg2rad(lat2))
-                * Math.cos(deg2rad(theta));
-        dist = Math.acos(dist);
-        dist = rad2deg(dist);
-        dist = dist * 60 * 1.1515;
-        return (dist*1000);
-    }
 
-    private double deg2rad(double deg) {
-        return (deg * Math.PI / 180.0);
-    }
-
-    private double rad2deg(double rad) {
-        return (rad * 180.0 / Math.PI);
-    }
 
     public List<LatLng> getAllpointLatLngs(){
         List<LatLng> latLngs = new ArrayList<>() ;
@@ -220,12 +201,12 @@ public class NavRoute {
 
     public LocationIndex getNearestpointLocation(Location currentLocation){
         List<LocationIndex> locationIndices = getNearest3Point(currentLocation);
-
+        Distance distance = new Distance();
         LocationIndex smallestLocation = locationIndices.get(0);
-        double smallest = distance(currentLocation,smallestLocation.getLocation());
+        double smallest = distance.distance(currentLocation,smallestLocation.getLocation());
 
         for (LocationIndex x : locationIndices){
-            double dis = distance(currentLocation,x.getLocation());
+            double dis = distance.distance(currentLocation,x.getLocation());
             if (dis < smallest) {
                 smallest = dis;
                 smallestLocation = x;
@@ -348,5 +329,52 @@ public class NavRoute {
         double lat3 = Math.atan2(Math.sin(lat1) + Math.sin(lat2), Math.sqrt((Math.cos(lat1) + Bx) * (Math.cos(lat1) + Bx) + By * By));
         double lon3 = lon1 + Math.atan2(By, Math.cos(lat1) + Bx);
         return new LatLng(Math.toDegrees(lat3), Math.toDegrees(lon3));
+    }
+
+    /* get vertical distance from point to a line using false position
+
+     */
+    public LatLng getVerticalPointLatLng(LatLng minLatLng,LatLng otherLatLng,double minDistance){
+        Distance distance = new Distance();
+        LatLng midPoint;
+        ArrayList<Double>  distances = new ArrayList<>();
+        midPoint = midPoint(minLatLng.latitude,minLatLng.longitude,otherLatLng.latitude,otherLatLng.longitude);
+
+        distances.add(distance.distance(minLatLng,midPoint));
+        distances.add(distance.distance(otherLatLng,midPoint));
+        Collections.sort(distances,Collections.<Double>reverseOrder());
+
+        if (minDistance < 0.1)
+            return minLatLng;
+
+        return  getVerticalPointLatLng(latLngs,minDistance);
+    }
+
+    private LinkedHashMap<LatLng, Double> sortHashMapByValues(HashMap<LatLng, Double> passedMap) {
+        List<LatLng> mapKeys = new ArrayList<>(passedMap.keySet());
+        List<Double> mapValues = new ArrayList<>(passedMap.values());
+        Collections.sort(mapValues);
+     //   Collections.sort(mapKeys);
+
+        LinkedHashMap<LatLng, Double> sortedMap = new LinkedHashMap<>();
+
+        Iterator<Double> valueIt = mapValues.iterator();
+        while (valueIt.hasNext()) {
+            Double val = valueIt.next();
+            Iterator<LatLng> keyIt = mapKeys.iterator();
+
+            while (keyIt.hasNext()) {
+                LatLng key = keyIt.next();
+                Double comp1 = passedMap.get(key);
+                Double comp2 = val;
+
+                if (comp1.equals(comp2)) {
+                    keyIt.remove();
+                    sortedMap.put(key, val);
+                    break;
+                }
+            }
+        }
+        return sortedMap;
     }
 }
