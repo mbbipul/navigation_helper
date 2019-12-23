@@ -22,6 +22,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -243,6 +244,7 @@ public class NavRoute {
 
     public List<LocationIndex> getNearest3Point(Location currentLocation){
         List<LocationIndex> locationIndices = getNearest3PointLocationIndex(currentLocation);
+
         List<LocationIndex> nearestLocationIndices = new ArrayList<>();
         LocationIndex loc = locationIndices.get(0);
         nearestLocationIndices.add(loc);
@@ -262,8 +264,9 @@ public class NavRoute {
         }
 
 
-        return nearestLocationIndices;
+        return locationIndices;
     }
+
 
     public List<LocationIndex> getNearest3PointLocationIndex(Location currentLocation){
         List<LocationIndex> locationIndices = getNearest3IndexLocation(currentLocation );
@@ -334,21 +337,61 @@ public class NavRoute {
     /* get vertical distance from point to a line using false position
 
      */
-    public LatLng getVerticalPointLatLng(LatLng minLatLng,LatLng otherLatLng,double minDistance){
-        Distance distance = new Distance();
-        LatLng midPoint;
-        ArrayList<Double>  distances = new ArrayList<>();
-        midPoint = midPoint(minLatLng.latitude,minLatLng.longitude,otherLatLng.latitude,otherLatLng.longitude);
+    public LatLng getMinPoint(int dir,Location currentLoc){
+       // getMinPoint
+        List<LocationIndex> locationIndices = getNearest3Point(currentLoc);
+        LatLng m = new LatLng(locationIndices.get(1).getLocation().getLatitude(),
+                locationIndices.get(1).getLocation().getLongitude());
+        LatLng p1 = new LatLng(locationIndices.get(0).getLocation().getLatitude(),
+                locationIndices.get(0).getLocation().getLongitude());
+        LatLng p2 = new LatLng(locationIndices.get(2).getLocation().getLatitude(),
+                locationIndices.get(2).getLocation().getLongitude());
 
-        distances.add(distance.distance(minLatLng,midPoint));
-        distances.add(distance.distance(otherLatLng,midPoint));
-        Collections.sort(distances,Collections.<Double>reverseOrder());
+       // List<Double> arrPoint = getDistance(p1,m,p2,currentLoc);
 
-        if (minDistance < 0.1)
-            return minLatLng;
+        LatLng currentLat = new LatLng(currentLoc.getLatitude(),currentLoc.getLongitude());
+//        if (dir == 1)
+//            return getVerticalDistance(m,p2,currentLat);
+//        else
+            return getVerticalDistance(p1,m,currentLat);
 
-        return  getVerticalPointLatLng(latLngs,minDistance);
     }
+
+    private List<Double> getDistance (LatLng p1,LatLng m,LatLng p2,LatLng currentLoc) {
+        Distance dis = new Distance();
+        List<Double> distances = new ArrayList<>();
+        distances.add(dis.distance(p1,currentLoc));
+        distances.add(dis.distance(m,currentLoc));
+        distances.add(dis.distance(p2,currentLoc));
+        return distances;
+    }
+
+    private LatLng getVerticalDistance(LatLng p1,LatLng p2,LatLng currentLoc){
+        Distance dis = new Distance();
+
+        double distance = dis.distance(p1,p2);
+
+        if(distance < 0.1)
+            return p2;
+        LatLng m = midPoint(p1.latitude,p1.longitude,p2.latitude,p2.longitude);
+
+        List<LatLng> points = Arrays.asList(p1,m,p2);
+
+
+        List<Double> arrPoint = getDistance(p1,m,p2,currentLoc);
+        List<Double> arrPointSort = arrPoint;
+        Collections.sort(arrPointSort);
+
+        int [] twoMinPoint = new int[2];
+        twoMinPoint[0] = arrPoint.indexOf(arrPointSort.get(0));
+        twoMinPoint[1] = arrPoint.indexOf(arrPointSort.get(1));
+
+        return getVerticalDistance(points.get(twoMinPoint[0]),points.get(twoMinPoint[1]),currentLoc);
+    }
+
+    private  double numberSort (double a,double b) {
+        return a - b;
+    };
 
     private LinkedHashMap<LatLng, Double> sortHashMapByValues(HashMap<LatLng, Double> passedMap) {
         List<LatLng> mapKeys = new ArrayList<>(passedMap.keySet());
