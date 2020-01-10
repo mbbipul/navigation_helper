@@ -46,6 +46,7 @@ public class RoutesActivity extends AppCompatActivity {
     Socket mSocket;
     private Boolean isConnected = true;
     TextView textView ;
+    double compass;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -251,11 +252,11 @@ public class RoutesActivity extends AppCompatActivity {
                         if (Float.isNaN(dSensorEvent.values[0])) {
                             textView.setText("Device is not flat no compass value");
                         } else {
-                            int valueInDegree = (int) Math.round(Math.toDegrees(dSensorEvent.values[0]));
-                            if (valueInDegree < 0) {
-                                valueInDegree = (valueInDegree + 360) % 360;
+                             compass = Math.toDegrees(dSensorEvent.values[0]);
+                            if (compass < 0) {
+                                compass = (compass + 360) % 360;
                             }
-                            textView.setText(String.valueOf(valueInDegree));
+                            textView.setText(String.valueOf(compass));
                         }
                         //Toast.makeText(RoutesActivity.this, String.valueOf(dSensorEvent.values[0]), Toast.LENGTH_SHORT).show();
                     }
