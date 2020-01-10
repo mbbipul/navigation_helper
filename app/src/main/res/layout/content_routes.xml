@@ -8,6 +8,15 @@
     tools:context=".RoutesActivity"
     tools:showIn="@layout/activity_routes">
 
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="TextView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:ignore="MissingConstraints" />
+
     <ListView
         android:id="@+id/routelist"
         android:layout_width="match_parent"

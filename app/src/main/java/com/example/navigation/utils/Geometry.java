@@ -2,7 +2,7 @@ package com.example.navigation.utils;
 
 import android.location.Location;
 
-public class Geometry {
+public class  Geometry {
 
     double x1,y1,x2,y2,x_d,y_d;
     public Geometry(double x1,double y1,double x2,double y2,double x_d,double y_d){

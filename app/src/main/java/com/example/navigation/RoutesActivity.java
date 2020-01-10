@@ -1,20 +1,18 @@
 package com.example.navigation;
 
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.graphics.Color;
-import android.media.AudioManager;
-import android.os.Build;
 import android.os.Bundle;
 
 import com.example.navigation.database.AppDatabase;
 import com.example.navigation.utils.DatabaseInitializer;
-import com.example.navigation.utils.SocketHelper;
+import com.example.navigation.navigation.Navigation;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.vikramezhil.droidspeech.DroidSpeech;
-import com.vikramezhil.droidspeech.OnDSListener;
-import com.vikramezhil.droidspeech.OnDSPermissionsListener;
+import com.hoan.dsensor_master.DProcessedSensor;
+import com.hoan.dsensor_master.DSensorEvent;
+import com.hoan.dsensor_master.DSensorManager;
+import com.hoan.dsensor_master.interfaces.DProcessedEventListener;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -47,6 +45,7 @@ public class RoutesActivity extends AppCompatActivity {
     ListView listView;
     Socket mSocket;
     private Boolean isConnected = true;
+    TextView textView ;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,6 +54,7 @@ public class RoutesActivity extends AppCompatActivity {
         setSupportActionBar(toolbar);
 
         FloatingActionButton fab = findViewById(R.id.fab);
+        textView = findViewById(R.id.textView);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -96,6 +96,19 @@ public class RoutesActivity extends AppCompatActivity {
         //mSocket.connect();
 
 
+//        List<LatLng> latLngList = new ArrayList<>();
+//        latLngList.add(new LatLng(22.658502176531748,90.36151885986328));
+//        latLngList.add(new LatLng(22.65666557399648,90.36169052124023));
+//        Navigation navigation = new Navigation(latLngList);
+//
+//
+//        if(navigation.isLocationOnPath(new LatLng(
+//                22.65766060968736,90.36153763532639))){
+//            Toast.makeText(this, "Yes", Toast.LENGTH_SHORT).show();
+//        }
+//        else{
+//            Toast.makeText(this, "No", Toast.LENGTH_SHORT).show();
+//        }
 
     }
 
@@ -226,5 +239,32 @@ public class RoutesActivity extends AppCompatActivity {
 //        mSocket.off("new message", onNewMessage);
 //    }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        DSensorManager.startDProcessedSensor(this, DProcessedSensor.TYPE_3D_COMPASS,
+                new DProcessedEventListener() {
+                    @Override
+                    public void onProcessedValueChanged(DSensorEvent dSensorEvent) {
+                        // update UI
+                        // dSensorEvent.values[0] is the azimuth.
+                        if (Float.isNaN(dSensorEvent.values[0])) {
+                            textView.setText("Device is not flat no compass value");
+                        } else {
+                            int valueInDegree = (int) Math.round(Math.toDegrees(dSensorEvent.values[0]));
+                            if (valueInDegree < 0) {
+                                valueInDegree = (valueInDegree + 360) % 360;
+                            }
+                            textView.setText(String.valueOf(valueInDegree));
+                        }
+                        //Toast.makeText(RoutesActivity.this, String.valueOf(dSensorEvent.values[0]), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
 
+    @Override
+    protected void onPause() {
+        DSensorManager.stopDSensor();
+        super.onPause();
+    }
 }

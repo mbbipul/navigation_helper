@@ -30,7 +30,9 @@ import com.amitshekhar.DebugDB;
 import com.example.navigation.database.AppDatabase;
 import com.example.navigation.entity.LocationD;
 import com.example.navigation.entity.Route;
-import com.example.navigation.navigation.NavRoute;
+import com.example.navigation.navigation.Navigation;
+import com.example.navigation.utils.Distance;
+import com.example.navigation.utils.NavRoute;
 import com.example.navigation.utils.DatabaseInitializer;
 import com.example.navigation.utils.DatabaseListner;
 import com.example.navigation.utils.LocationIndex;
@@ -62,7 +64,10 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
 
     DatabaseInitializer database;
 
+
     Location currentLocation;
+
+    Location prevLocation ;
 
     Button addRouteStartButton,
             addRouteLeftButton,
@@ -73,11 +78,13 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     Boolean viewMode;
 
     LinearLayout linearLayout;
+    ArrayList<Location> locations;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
+        prevLocation = null;
         Intent intent = getIntent();
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -109,20 +116,12 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             addRouteFinishButton.setVisibility(View.GONE);
         }
 
+       // startNavigationhelper();
+
       //  Toast.makeText(this, routeName, Toast.LENGTH_SHORT).show();
 
     }
 
-
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -328,7 +327,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     @Override
     public void fetchRouteInfo(ArrayList<RouteInfo> routeInfos) {
 
-        ArrayList<Location> locations = new ArrayList<>();
+        locations = new ArrayList<>();
 
         List<LatLng> points = new ArrayList<LatLng>();
         final MarkerOptions options = new MarkerOptions();
@@ -346,53 +345,8 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             points.add(latLng);
         }
         if (viewMode){
-            final NavRoute navRoute = new NavRoute(locations,1,this);
 
-            LocationRequest request = new LocationRequest();
-            request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-            FusedLocationProviderClient clients = LocationServices.getFusedLocationProviderClient(this);
-            clients.requestLocationUpdates(request, new LocationCallback() {
-                @Override
-                public void onLocationResult(LocationResult locationResult) {
-                    Location location = locationResult.getLastLocation();
-
-                    if (location != null) {
-                        Log.d("TAG", "location update " + location);
-                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
-                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-                        int index = navRoute.getNearestPointIndex(location);
-
-                        List<LocationIndex> locationIndexs = navRoute.getNearest3Point(location);
-                                //navRoute.getNearestpointLocation(location);
-
-                       // Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
-
-                        String res = "";
-                        for(LocationIndex x : locationIndexs){
-                            LatLng latLng = new LatLng(x.getLocation().getLatitude(), x.getLocation().getLongitude());
-                            res += String.valueOf(x.getIndex()+ " " +"\n");
-                            mMap.addMarker(new MarkerOptions().position(latLng).title(String.valueOf(x.getIndex())).snippet("Marker in index"));
-                           // mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                        }
-                        Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
-
-                        mMap.addCircle(new CircleOptions()
-                                .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
-                                        ,navRoute.getPointLocation(index).getLongitude()))
-                                .radius(3)
-                                .strokeColor(Color.RED)
-                                .fillColor(Color.BLUE)
-                        );
-                        Bitmap bitmap = getBitmap(R.drawable.ic_directions_run_black_24dp);
-                        //Toast.makeText(MapsActivity.this, String.valueOf(navRoute.getAllpointLatLngs().size()), Toast.LENGTH_SHORT).show();
-                        navRoute.setAnimation(mMap,navRoute.getAllpointLatLngs(),bitmap);
-                    }
-
-                }
-            }, null);
-
-
+            startNavigationhelper();
 
         }
 
@@ -407,6 +361,78 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
         drawLine(points);
     }
 
+    private void startNavigationhelper(){
+        final NavRoute navRoute = new NavRoute(locations,1);
+
+//            LatLng ver = navRoute.getVerticalDistance(
+//                    new LatLng(22.659551652660642, 90.36360025405884),
+//                    new LatLng(22.65750714694182, 90.3629457950592),
+//                    new LatLng(22.65893780910662,  90.36292433738708));
+//
+//            System.out.println("bipul"+ver);
+
+        final Navigation navigation = new Navigation(this,navRoute);
+        LocationRequest request = new LocationRequest();
+        request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        request.setInterval(1000);
+        request.setFastestInterval(1000);
+        FusedLocationProviderClient clients = LocationServices.getFusedLocationProviderClient(this);
+        clients.requestLocationUpdates(request, new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                Location location = locationResult.getLastLocation();
+                mMap.clear();
+                Distance dis = new Distance();
+                if (location != null) {
+                    Toast.makeText(MapsActivity.this, "update", Toast.LENGTH_SHORT).show();
+                    Log.d("TAG", "location update " + location);
+                    LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
+                    mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
+                    mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+                    int index = navRoute.getNearestPointIndex(location);
+
+                    LatLng minLatLng = navRoute.getMinPoint(1,location);
+                    //navRoute.getNearestpointLocation(location);
+//
+//                       // Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
+//
+                    if (prevLocation!=null){
+                        if(dis.distance(prevLocation,location)>1){
+                            navigation.startNavigation(location);
+                        }
+                    }else{
+                        navigation.startNavigation(location);
+                    }
+                    prevLocation = location;
+//
+//                        String res = "";
+//                        for(LocationIndex x : locationIndexs){
+//                            LatLng latLng = new LatLng(x.getLocation().getLatitude(), x.getLocation().getLongitude());
+//                            res += String.valueOf(x.getIndex()+ " " +"\n");
+//                            mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(x.getIndex())).snippet("Marker in index"));
+//                           // mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+//                        }
+                    mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(minLatLng.toString())).snippet("Marker in index"));
+
+                    // Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
+
+                    mMap.addCircle(new CircleOptions()
+//                                .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
+//                                        ,navRoute.getPointLocation(index).getLongitude()))
+                                    .center(minLatLng)
+                                    .radius(3)
+                                    .strokeColor(Color.RED)
+                                    .fillColor(Color.BLUE)
+                    );
+                    Bitmap bitmap = getBitmap(R.drawable.ic_directions_run_black_24dp);
+                    //Toast.makeText(MapsActivity.this, String.valueOf(navRoute.getAllpointLatLngs().size()), Toast.LENGTH_SHORT).show();
+                 //   navRoute.setAnimation(mMap,navRoute.getAllpointLatLngs(),bitmap);
+                }
+
+            }
+        }, null);
+
+    }
 
     private Bitmap getBitmap(int drawableRes) {
         Drawable drawable = getResources().getDrawable(drawableRes);

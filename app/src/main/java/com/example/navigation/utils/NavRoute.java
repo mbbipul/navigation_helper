@@ -1,4 +1,4 @@
-package com.example.navigation.navigation;
+package com.example.navigation.utils;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -28,6 +28,10 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Consumer;
+
+import static com.example.navigation.utils.NavigationUtils.getVerticalDistance;
+import static com.example.navigation.utils.NavigationUtils.midPoint;
 
 public class NavRoute {
 
@@ -41,7 +45,7 @@ public class NavRoute {
     int direction;
     int startPointIndex;
 
-    Context c;
+
     public int getStartPointIndex() {
         return startPointIndex;
     }
@@ -50,10 +54,9 @@ public class NavRoute {
         this.startPointIndex = startPointIndex;
     }
 
-    public NavRoute(ArrayList<Location> locations, int direction,Context c){
+    public NavRoute(ArrayList<Location> locations, int direction){
         this.routePoints = locations;
         this.direction = direction;
-        this.c = c;
         if (direction==1){
             firstPointIndex = 0;
             lastPointIndex = N-1;
@@ -133,6 +136,12 @@ public class NavRoute {
 
     public Location getPointLocation(int i){
         return routePoints.get(i);
+    }
+
+    public LatLng getPointLatLng(int i){
+        LatLng latLng = new LatLng(routePoints.get(i).getLatitude(),
+                routePoints.get(i).getLatitude());
+        return latLng;
     }
 
 
@@ -318,42 +327,35 @@ public class NavRoute {
 
     }
 
-    public LatLng midPoint(double lat1,double lon1,double lat2,double lon2){
-
-        double dLon = Math.toRadians(lon2 - lon1);
-
-        //convert to radians
-        lat1 = Math.toRadians(lat1);
-        lat2 = Math.toRadians(lat2);
-        lon1 = Math.toRadians(lon1);
-
-        double Bx = Math.cos(lat2) * Math.cos(dLon);
-        double By = Math.cos(lat2) * Math.sin(dLon);
-        double lat3 = Math.atan2(Math.sin(lat1) + Math.sin(lat2), Math.sqrt((Math.cos(lat1) + Bx) * (Math.cos(lat1) + Bx) + By * By));
-        double lon3 = lon1 + Math.atan2(By, Math.cos(lat1) + Bx);
-        return new LatLng(Math.toDegrees(lat3), Math.toDegrees(lon3));
-    }
 
     /* get vertical distance from point to a line using false position
 
      */
     public LatLng getMinPoint(int dir,Location currentLoc){
        // getMinPoint
-        List<LocationIndex> locationIndices = getNearest3Point(currentLoc);
+        LatLng currentLat = new LatLng(currentLoc.getLatitude(),currentLoc.getLongitude());
+
+        List<LocationIndex> locationIndices = getNearest3PointLocationIndex(currentLoc);
+
         LatLng m = new LatLng(locationIndices.get(1).getLocation().getLatitude(),
                 locationIndices.get(1).getLocation().getLongitude());
         LatLng p1 = new LatLng(locationIndices.get(0).getLocation().getLatitude(),
                 locationIndices.get(0).getLocation().getLongitude());
-        LatLng p2 = new LatLng(locationIndices.get(2).getLocation().getLatitude(),
-                locationIndices.get(2).getLocation().getLongitude());
 
-       // List<Double> arrPoint = getDistance(p1,m,p2,currentLoc);
+        if(locationIndices.size()<3) {
+            return getVerticalDistance(p1,m,currentLat);
+        }
+        else {
+            LatLng p2 = new LatLng(locationIndices.get(2).getLocation().getLatitude(),
+                    locationIndices.get(2).getLocation().getLongitude());
 
-        LatLng currentLat = new LatLng(currentLoc.getLatitude(),currentLoc.getLongitude());
+            // List<Double> arrPoint = getDistance(p1,m,p2,currentLoc);
+
 //        if (dir == 1)
 //            return getVerticalDistance(m,p2,currentLat);
 //        else
-            return getVerticalDistance(p1,m,currentLat);
+            return getVerticalDistance(p1, m, currentLat);
+        }
 
     }
 
@@ -366,28 +368,6 @@ public class NavRoute {
         return distances;
     }
 
-    private LatLng getVerticalDistance(LatLng p1,LatLng p2,LatLng currentLoc){
-        Distance dis = new Distance();
-
-        double distance = dis.distance(p1,p2);
-
-        if(distance < 0.1)
-            return p2;
-        LatLng m = midPoint(p1.latitude,p1.longitude,p2.latitude,p2.longitude);
-
-        List<LatLng> points = Arrays.asList(p1,m,p2);
-
-
-        List<Double> arrPoint = getDistance(p1,m,p2,currentLoc);
-        List<Double> arrPointSort = arrPoint;
-        Collections.sort(arrPointSort);
-
-        int [] twoMinPoint = new int[2];
-        twoMinPoint[0] = arrPoint.indexOf(arrPointSort.get(0));
-        twoMinPoint[1] = arrPoint.indexOf(arrPointSort.get(1));
-
-        return getVerticalDistance(points.get(twoMinPoint[0]),points.get(twoMinPoint[1]),currentLoc);
-    }
 
     private  double numberSort (double a,double b) {
         return a - b;
