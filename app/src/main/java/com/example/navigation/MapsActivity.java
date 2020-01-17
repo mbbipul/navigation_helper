@@ -18,12 +18,14 @@ import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.amitshekhar.DebugDB;
@@ -55,6 +57,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLocationButtonClickListener,
         GoogleMap.OnMyLocationClickListener, OnMapReadyCallback,DatabaseListner, View.OnClickListener {
@@ -66,6 +69,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
 
 
     Location currentLocation;
+    TextToSpeech textToSpeech;
 
     Location prevLocation ;
 
@@ -78,14 +82,38 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     Boolean viewMode;
 
     LinearLayout linearLayout;
-    ArrayList<Location> locations;
+    ArrayList<RouteInfo> routeInfos;
+    TextView details;
+    LocationRequest request;
+    FusedLocationProviderClient client;
+    LocationCallback diLocationCallback;
+    LocationCallback duLocationCallback;
+
+     NavRoute navRoute ;
+     Navigation navigation;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+        textToSpeech=new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(status != TextToSpeech.ERROR) {
+                    textToSpeech.setLanguage(Locale.US);
+                }
+            }
+        });
+
 
         prevLocation = null;
         Intent intent = getIntent();
+
+        request = new LocationRequest();
+        request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        request.setInterval(1000);
+        request.setFastestInterval(1000);
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -95,7 +123,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
         addRouteLeftButton   = findViewById(R.id.left);
         addRouteRightButton  = findViewById(R.id.right);
         addRouteFinishButton = findViewById(R.id.finish);
-
+        details = findViewById(R.id.textView2);
         linearLayout = findViewById(R.id.bottom_button);
 
         addRouteStartButton.setOnClickListener(this);
@@ -116,6 +144,63 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             addRouteFinishButton.setVisibility(View.GONE);
         }
 
+        duLocationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                Location location = locationResult.getLastLocation();
+                mMap.clear();
+                drawLine(navRoute.getAllpointLatLngs());
+
+
+                Distance dis = new Distance();
+                if (location != null) {
+                    Toast.makeText(MapsActivity.this, "update", Toast.LENGTH_SHORT).show();
+                    Log.d("TAG", "location update " + location);
+                    LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
+                    mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
+                    // mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+                    int index = navRoute.getNearestPointIndex(location);
+
+                    LatLng minLatLng = navRoute.getMinPoint(1,location);
+                    //navRoute.getNearestpointLocation(location);
+//
+//                       // Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
+//
+                    if (prevLocation!=null){
+                        double distance = dis.distance(prevLocation,location);
+                        details.setText(String.valueOf(distance));
+                        if(distance>1){
+                            navigation.startNavigation(location);
+                        }
+                    }
+                    prevLocation = location;
+//
+//                        String res = "";
+//                        for(LocationIndex x : locationIndexs){
+//                            LatLng latLng = new LatLng(x.getLocation().getLatitude(), x.getLocation().getLongitude());
+//                            res += String.valueOf(x.getIndex()+ " " +"\n");
+//                            mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(x.getIndex())).snippet("Marker in index"));
+//                           // mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+//                        }
+                    mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(minLatLng.toString())).snippet("Marker in index"));
+
+                    // Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
+
+                    mMap.addCircle(new CircleOptions()
+//                                .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
+//                                        ,navRoute.getPointLocation(index).getLongitude()))
+                                    .center(minLatLng)
+                                    .radius(3)
+                                    .strokeColor(Color.RED)
+                                    .fillColor(Color.BLUE)
+                    );
+                    Bitmap bitmap = getBitmap(R.drawable.ic_directions_run_black_24dp);
+                    //Toast.makeText(MapsActivity.this, String.valueOf(navRoute.getAllpointLatLngs().size()), Toast.LENGTH_SHORT).show();
+                    //   navRoute.setAnimation(mMap,navRoute.getAllpointLatLngs(),bitmap);
+                }
+
+            }
+        };
        // startNavigationhelper();
 
       //  Toast.makeText(this, routeName, Toast.LENGTH_SHORT).show();
@@ -130,7 +215,8 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
 
         if(checkLocationPermission()){
             mMap.setMyLocationEnabled(true);
-            requestLocationUpdates();
+            if(!viewMode)
+                requestLocationUpdates();
             database.drawRoute(routeName);
         }
 
@@ -138,17 +224,28 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
                 @Override
                 public void onMapClick(LatLng latLng) {
-                    addRouteFinishButton.setEnabled(true);
-                    Location location = new Location(LocationManager.GPS_PROVIDER);
-                    location.setLatitude(latLng.latitude);
-                    location.setLongitude(latLng.longitude);
-
                     mMap.addMarker(new MarkerOptions().position(latLng).title("Marker in Current"));
-                    Route route = new Route();
-                    route.setRouteName(routeName);
-                    route.setDirection("drag");
-                    addRouteToDb(location,route);
-                    mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+
+                   // if(!viewMode){
+                        addRouteFinishButton.setEnabled(true);
+                        Location location = new Location(LocationManager.GPS_PROVIDER);
+                        location.setLatitude(latLng.latitude);
+                        location.setLongitude(latLng.longitude);
+
+                        Route route = new Route();
+                        route.setRouteName(routeName);
+                        route.setDirection("drag");
+                        addRouteToDb(location,route);
+                        mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+                  //  }
+//                    else{
+//                        Location location = new Location(LocationManager.GPS_PROVIDER);
+//                        location.setLatitude(latLng.latitude);
+//                        location.setLongitude(latLng.longitude);
+//                        location.setAccuracy(16);
+//                        startMockNavigation(location);
+//                    }
+
                 }
             });
 
@@ -221,11 +318,11 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                     if (ContextCompat.checkSelfPermission(this,
                             Manifest.permission.ACCESS_FINE_LOCATION)
                             == PackageManager.PERMISSION_GRANTED) {
-                        requestLocationUpdates();
+                        if(!viewMode)
+                            requestLocationUpdates();
                     }
                 } else {
                     checkLocationPermission();
-
                 }
                 return;
             }
@@ -247,27 +344,24 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     }
 
     private void requestLocationUpdates() {
-        LocationRequest request = new LocationRequest();
-        request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
+        diLocationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                Location location = locationResult.getLastLocation();
+                if (location != null) {
+                    Log.d("TAG", "location update " + location);
+                    currentLocation = location;
+                }
+
+            }
+        };
+
+        client = LocationServices.getFusedLocationProviderClient(this);
         int permission = ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION);
         if (permission == PackageManager.PERMISSION_GRANTED) {
             addRouteStartButton.setEnabled(true);
-            client.requestLocationUpdates(request, new LocationCallback() {
-                @Override
-                public void onLocationResult(LocationResult locationResult) {
-                    Location location = locationResult.getLastLocation();
-                    if (location != null) {
-                        Log.d("TAG", "location update " + location);
-//                        LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
-//                        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
-//                        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-                        currentLocation = location;
-                    }
-
-                }
-            }, null);
+            client.requestLocationUpdates(request, diLocationCallback, null);
         }
     }
 
@@ -279,11 +373,24 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
         super.onResume();
 
     }
+    protected void onStart() {
+        super.onStart();
 
+    }
     protected void onPause() {
         super.onPause();
+//        if(viewMode){
+//            client.removeLocationUpdates(duLocationCallback);
+//        }
     }
+    protected void onDestroy() {
 
+        super.onDestroy();
+        if(viewMode){
+            client.removeLocationUpdates(duLocationCallback);
+        }
+
+    }
 
     @Override
     public void onClick(View v) {
@@ -295,27 +402,35 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                 route.setRouteName(routeName);
                 route.setDirection("move");
                 addRouteToDb(currentLocation,route);
+
                 addRouteLeftButton.setEnabled(true);
                 addRouteRightButton.setEnabled(true);
                 addRouteFinishButton.setEnabled(true);
+                Toast.makeText(this, "move", Toast.LENGTH_SHORT).show();
                 break;
             case R.id.left:
                 Route route2 = new Route();
                 route2.setRouteName(routeName);
                 route2.setDirection("left");
                 addRouteToDb(currentLocation,route2);
+                Toast.makeText(this, "left", Toast.LENGTH_SHORT).show();
+
                 break;
             case R.id.right:
                 Route route3 = new Route();
                 route3.setRouteName(routeName);
                 route3.setDirection("right");
                 addRouteToDb(currentLocation,route3);
+                Toast.makeText(this, "right", Toast.LENGTH_SHORT).show();
+
                 break;
             case R.id.finish:
-//                Route route4 = new Route();
-//                route4.setRouteName(routeName);
-//                route4.setDirection("finish");
-//                addRouteToDb(currentLocation,route4);
+                Route route4 = new Route();
+                route4.setRouteName(routeName);
+                route4.setDirection("finish");
+                addRouteToDb(currentLocation,route4);
+                Toast.makeText(this, "finish", Toast.LENGTH_SHORT).show();
+
                 addRouteStartButton.setEnabled(false);
                 addRouteLeftButton.setEnabled(false);
                 addRouteRightButton.setEnabled(false);
@@ -325,45 +440,19 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     }
 
     @Override
-    public void fetchRouteInfo(ArrayList<RouteInfo> routeInfos) {
-
-        locations = new ArrayList<>();
-
-        List<LatLng> points = new ArrayList<LatLng>();
-        final MarkerOptions options = new MarkerOptions();
-
-        for (int i=0;i<routeInfos.size();i++){
-            LocationD locationD = routeInfos.get(i).getLocationD();
-
-            Location location = new Location(LocationManager.GPS_PROVIDER);
-            location.setLatitude(locationD.getLattitude());
-            location.setLongitude(locationD.getLongitude());
-            location.setAltitude(locationD.getAltitude());
-            locations.add(location);
-
-            LatLng latLng = new LatLng(locationD.getLattitude(),locationD.getLongitude());
-            points.add(latLng);
-        }
+    public void fetchRouteInfo(ArrayList<RouteInfo> rInfos) {
+        Toast.makeText(this, String.valueOf(rInfos.size()), Toast.LENGTH_SHORT).show();
+        routeInfos = rInfos;
+        navRoute = new NavRoute(rInfos,1);
+        navigation = new Navigation(this,navRoute,details);
         if (viewMode){
-
-            startNavigationhelper();
-
+            startNavigationhelper(rInfos);
         }
 
-        int i=0;
-//        for (LatLng point : points) {
-//            options.position(point);
-//            options.title(String.valueOf(i));
-//            options.snippet("someDesc");
-//            mMap.addMarker(options);
-//            i++;
-//        }
-        drawLine(points);
     }
 
-    private void startNavigationhelper(){
-        final NavRoute navRoute = new NavRoute(locations,1);
-
+    private void startNavigationhelper(ArrayList<RouteInfo> rInfos){
+        drawLine(navRoute.getAllpointLatLngs());
 //            LatLng ver = navRoute.getVerticalDistance(
 //                    new LatLng(22.659551652660642, 90.36360025405884),
 //                    new LatLng(22.65750714694182, 90.3629457950592),
@@ -371,66 +460,9 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
 //
 //            System.out.println("bipul"+ver);
 
-        final Navigation navigation = new Navigation(this,navRoute);
-        LocationRequest request = new LocationRequest();
-        request.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        request.setInterval(1000);
-        request.setFastestInterval(1000);
-        FusedLocationProviderClient clients = LocationServices.getFusedLocationProviderClient(this);
-        clients.requestLocationUpdates(request, new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                Location location = locationResult.getLastLocation();
-                mMap.clear();
-                Distance dis = new Distance();
-                if (location != null) {
-                    Toast.makeText(MapsActivity.this, "update", Toast.LENGTH_SHORT).show();
-                    Log.d("TAG", "location update " + location);
-                    LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
-                    mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
-                    mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-                    int index = navRoute.getNearestPointIndex(location);
 
-                    LatLng minLatLng = navRoute.getMinPoint(1,location);
-                    //navRoute.getNearestpointLocation(location);
-//
-//                       // Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
-//
-                    if (prevLocation!=null){
-                        if(dis.distance(prevLocation,location)>1){
-                            navigation.startNavigation(location);
-                        }
-                    }else{
-                        navigation.startNavigation(location);
-                    }
-                    prevLocation = location;
-//
-//                        String res = "";
-//                        for(LocationIndex x : locationIndexs){
-//                            LatLng latLng = new LatLng(x.getLocation().getLatitude(), x.getLocation().getLongitude());
-//                            res += String.valueOf(x.getIndex()+ " " +"\n");
-//                            mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(x.getIndex())).snippet("Marker in index"));
-//                           // mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-//                        }
-                    mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(minLatLng.toString())).snippet("Marker in index"));
-
-                    // Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
-
-                    mMap.addCircle(new CircleOptions()
-//                                .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
-//                                        ,navRoute.getPointLocation(index).getLongitude()))
-                                    .center(minLatLng)
-                                    .radius(3)
-                                    .strokeColor(Color.RED)
-                                    .fillColor(Color.BLUE)
-                    );
-                    Bitmap bitmap = getBitmap(R.drawable.ic_directions_run_black_24dp);
-                    //Toast.makeText(MapsActivity.this, String.valueOf(navRoute.getAllpointLatLngs().size()), Toast.LENGTH_SHORT).show();
-                 //   navRoute.setAnimation(mMap,navRoute.getAllpointLatLngs(),bitmap);
-                }
-
-            }
-        }, null);
+        client = LocationServices.getFusedLocationProviderClient(this);
+        client.requestLocationUpdates(request,duLocationCallback , null);
 
     }
 
@@ -450,8 +482,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             return;
         }
 
-        Polyline line = mMap.addPolyline(new PolylineOptions().width(3).color(Color.RED));
-        line.setPoints(points);
+        mMap.addPolyline(new PolylineOptions().addAll(points).width(3).color(Color.RED));
     }
 
     @Override

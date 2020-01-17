@@ -16,7 +16,7 @@ public class Route {
     private String time;
 
     @ColumnInfo(name = "direction")
-    private String direction;
+    private String direction="89";
 
     @ColumnInfo(name = "locationId")
     private Long locationId;

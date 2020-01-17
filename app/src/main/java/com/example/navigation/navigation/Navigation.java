@@ -3,6 +3,8 @@ package com.example.navigation.navigation;
 import android.content.Context;
 import android.location.Location;
 import android.speech.tts.TextToSpeech;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.navigation.utils.Distance;
 import com.example.navigation.utils.NavRoute;
@@ -28,9 +30,11 @@ public class Navigation {
     private List<LatLng> latLngs;
     double compass;
     NavigationPoint currentNavigationPoint;
-    public Navigation(Context context,NavRoute nav){
+    TextView details;
+    public Navigation(Context context,NavRoute nav,TextView details){
         this.context = context;
         this.navRoute = nav;
+        this.details = details;
         textToSpeech=new TextToSpeech(context, new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -64,6 +68,11 @@ public class Navigation {
         this.latLngs = latLngs;
     }
 
+    public void check(){
+        Toast.makeText(context, "initialize", Toast.LENGTH_SHORT).show();
+
+    }
+
     private boolean isLocationOnPath(LatLng latLng){
         return NavigationUtils.isLocationOnPath(latLng,navRoute,3);
     }
@@ -78,10 +87,13 @@ public class Navigation {
 
 
     public void startNavigation(Location location){
+     //   textToSpeech.speak("Navigation start",TextToSpeech.QUEUE_FLUSH,null);
+
+        details.setText("");
         float hdop = location.getAccuracy()/5;
         float MIN_DIST_POINT_TO_POINT = 10*hdop+15;
-        double elapsedDistance;
-        int ALPHA_MIN ;
+//        double elapsedDistance;
+//        int ALPHA_MIN ;
 
         LatLng currentPoint = new LatLng(location.getLatitude(),location.getLongitude());
         ArrayList<Location> locations = navRoute.getRoutePoints();
@@ -92,54 +104,76 @@ public class Navigation {
                 navRoute.getNextPointIndex(nearestPointIndex),
                 navRoute.getPrevPointIndex(nearestPointIndex)
         );
+        details.setText(details.getText()+"\n"+"Accurecy "+String.valueOf(hdop));
 
-        if (hdop > 5.0){
-            textToSpeech.speak("Gps accurecy is very low",TextToSpeech.QUEUE_FLUSH,null);
-            return;
-        }
-        elapsedDistance = 10;
-        if(elapsedDistance>MIN_DIST_POINT_TO_POINT)
-            ALPHA_MIN = 15;
-        else
-            ALPHA_MIN = 35;
+//        if (hdop > 5.0){
+//            Toast.makeText(context, "low gps", Toast.LENGTH_SHORT).show();
+//            textToSpeech.speak("Gps accurecy is very low",TextToSpeech.QUEUE_FLUSH,null);
+//            return;
+//        }
+
+//        elapsedDistance = 10;
+//        if(elapsedDistance>MIN_DIST_POINT_TO_POINT)
+//            ALPHA_MIN = 15;
+//        else
+//            ALPHA_MIN = 35;
 
         if (isLocationNearToRoute(currentPoint)){
             if(hasDeviation(location)){
                 //textToSpeech.speak("You are right track",TextToSpeech.QUEUE_FLUSH,null);
-
+                Toast.makeText(context, "has deviation", Toast.LENGTH_SHORT).show();
+                returnToTrack(location);
             }else {
-                //textToSpeech.speak("You are too far from the path",TextToSpeech.QUEUE_FLUSH,null);
-
+                Toast.makeText(context, "Move forward", Toast.LENGTH_SHORT).show();
+                textToSpeech.speak("Move forward",TextToSpeech.QUEUE_FLUSH,null);
             }
         }
         else {
+            Toast.makeText(context, "too far", Toast.LENGTH_SHORT).show();
+
             textToSpeech.speak("You are too far from the route",TextToSpeech.QUEUE_FLUSH,null);
         }
 
     }
 
     private void returnToTrack(Location location){
-
+        navigateToAzimuth(location);
     }
 
     private float calcBearing(Location loc1,Location loc2){
         return loc1.bearingTo(loc2);
     }
 
-    private  void navigateToAzimuth(float alpha2){
-        double azimuth;
-        azimuth = azimuth(alpha2);
-
+    private  void navigateToAzimuth(Location location){
+        float alpha2 = calcDeviationInDegree(location);
+        turnAround(azimuth(alpha2),location);
     }
 
-    private void turnAround(double azimuth){
-        if (Math.abs(azimuth) != 5){
-            if (azimuth<0)
-                textToSpeech.speak("Please turn left ",TextToSpeech.QUEUE_FLUSH,null);
-            else
-                textToSpeech.speak("Please turn right ",TextToSpeech.QUEUE_FLUSH,null);
-        }else
-            textToSpeech.speak("Move ahead",TextToSpeech.QUEUE_FLUSH,null);
+    private void turnAround(double azimuth,Location location){
+        details.setText(details.getText()+"\n"+"Azimuth :"+String.valueOf(azimuth));
+        double nextPoinDistance = getDistanceFromNextPoint(location);
+
+        if (nextPoinDistance < 1){
+            String command = navRoute.getRouteDirection().get(currentNavigationPoint.getCurrentPointIndex());
+            textToSpeech.speak(command,TextToSpeech.QUEUE_FLUSH,null);
+
+        }
+        else {
+            if (Math.abs(azimuth) != 5){
+                if (azimuth<0){
+                    Toast.makeText(context, "left", Toast.LENGTH_SHORT).show();
+                    textToSpeech.speak("Please turn left ",TextToSpeech.QUEUE_FLUSH,null);
+                }
+                else {
+                    Toast.makeText(context, "right", Toast.LENGTH_SHORT).show();
+                    textToSpeech.speak("Please turn right ", TextToSpeech.QUEUE_FLUSH, null);
+                }
+            }else {
+                Toast.makeText(context, "move", Toast.LENGTH_SHORT).show();
+                textToSpeech.speak("Move ahead", TextToSpeech.QUEUE_FLUSH, null);
+            }
+        }
+
 
     }
     private double azimuth(double alpha2){
@@ -161,9 +195,16 @@ public class Navigation {
         return alpha2;
     }
     private boolean hasDeviation(Location location){
-        float hdop = location.getAccuracy()/5;
-        double dth = (10*hdop)+5;
-        if (getDistanceFromNextPoint(location)>=dth)
+//        float hdop = location.getAccuracy()/5;
+//
+//        double dth = (10*hdop)+5;
+
+        double dth = 2;
+        double d = getDistanceFromNextPoint(location);
+        details.setText(details.getText()+"\n"+"Min Dis :"+String.valueOf(dth));
+        details.setText(details.getText()+"\n"+"Min_m Dist :"+String.valueOf(d));
+
+        if (d >= dth)
             return true;
         return false;
     }

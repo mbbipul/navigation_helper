@@ -10,6 +10,7 @@ import android.view.animation.Interpolator;
 import android.view.animation.LinearInterpolator;
 import android.widget.Toast;
 
+import com.example.navigation.entity.LocationD;
 import com.example.navigation.utils.Distance;
 import com.example.navigation.utils.Geometry;
 import com.example.navigation.utils.LocationIndex;
@@ -45,6 +46,16 @@ public class NavRoute {
     int direction;
     int startPointIndex;
 
+    public List<String> getRouteDirection() {
+        return routeDirection;
+    }
+
+    public ArrayList<RouteInfo> getRouteInfos() {
+        return routeInfos;
+    }
+
+    private ArrayList<RouteInfo> routeInfos;
+    private List<String> routeDirection;
 
     public int getStartPointIndex() {
         return startPointIndex;
@@ -54,8 +65,9 @@ public class NavRoute {
         this.startPointIndex = startPointIndex;
     }
 
-    public NavRoute(ArrayList<Location> locations, int direction){
-        this.routePoints = locations;
+    public NavRoute(ArrayList<RouteInfo> mRouteInfos, int direction){
+        this.routeInfos = mRouteInfos;
+        setRoutePoints(mRouteInfos);
         this.direction = direction;
         if (direction==1){
             firstPointIndex = 0;
@@ -66,6 +78,23 @@ public class NavRoute {
         }
     }
 
+    private void setRoutePoints(ArrayList<RouteInfo> mRouteInfos){
+        routePoints = new ArrayList<>();
+        routeDirection = new ArrayList<>();
+        List<LatLng> points = new ArrayList<LatLng>();
+        final MarkerOptions options = new MarkerOptions();
+
+        for (int i=0;i<mRouteInfos.size();i++){
+            LocationD locationD = mRouteInfos.get(i).getLocationD();
+            Location location = new Location(LocationManager.GPS_PROVIDER);
+            location.setLatitude(locationD.getLattitude());
+            location.setLongitude(locationD.getLongitude());
+            location.setAltitude(locationD.getAltitude());
+
+            routeDirection.add(mRouteInfos.get(i).getRoute().getDirection());
+            routePoints.add(location);
+        }
+    }
 
     public int getN() {
         return routePoints.size();
@@ -90,7 +119,7 @@ public class NavRoute {
 
     public int getNextPointIndex(int i) {
         if (i==getRoutePoints().size()-1)
-            return -2;
+            return getN();
         return i+1;
     }
 
@@ -110,9 +139,6 @@ public class NavRoute {
         return routePoints;
     }
 
-    public void setRoutePoints(ArrayList<Location> routePoints) {
-        this.routePoints = routePoints;
-    }
 
     public void addRoutePoint(Location location){ routePoints.add(location); }
 
@@ -135,6 +161,10 @@ public class NavRoute {
 
 
     public Location getPointLocation(int i){
+        return routePoints.get(i);
+    }
+
+    public Location getPointLocationWithRoute(int i){
         return routePoints.get(i);
     }
 
@@ -206,6 +236,8 @@ public class NavRoute {
     }
 
     public int getPrevPointIndex(int i){
+        if (i==0)
+            return 0;
         return i-1;
     }
 
@@ -286,7 +318,7 @@ public class NavRoute {
             loc.add(locationIndices.get(2));
         }else if(locationIndices.get(2).getIndex() < 0){
             loc.add(locationIndices.get(0));
-            loc.add(locationIndices.get(2));
+            loc.add(locationIndices.get(1));
         }else {
             return locationIndices;
         }
@@ -335,7 +367,8 @@ public class NavRoute {
        // getMinPoint
         LatLng currentLat = new LatLng(currentLoc.getLatitude(),currentLoc.getLongitude());
 
-        List<LocationIndex> locationIndices = getNearest3PointLocationIndex(currentLoc);
+        //List<LocationIndex> locationIndices = getNearest3PointLocationIndex(currentLoc);
+        List<LocationIndex> locationIndices = getNearest3Point_u(currentLoc);
 
         LatLng m = new LatLng(locationIndices.get(1).getLocation().getLatitude(),
                 locationIndices.get(1).getLocation().getLongitude());
@@ -357,6 +390,27 @@ public class NavRoute {
             return getVerticalDistance(p1, m, currentLat);
         }
 
+    }
+
+    private List<LocationIndex> getNearest3Point_u(Location cuLoc){
+        List<LocationIndex> locationIndices = new ArrayList<>();
+        int nIndex = getNearestPointIndex(cuLoc);
+        if (nIndex == 0){
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex),nIndex));
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex+1),nIndex+1));
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex+2),nIndex+2));
+        }else if (nIndex == getN()-1){
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex-2),nIndex-2));
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex-1),nIndex-1));
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex),nIndex));
+
+        }else {
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex-1),nIndex-1));
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex),nIndex));
+            locationIndices.add(new LocationIndex(getPointLocation(nIndex+1),nIndex+1));
+        }
+
+        return locationIndices;
     }
 
     private List<Double> getDistance (LatLng p1,LatLng m,LatLng p2,LatLng currentLoc) {
