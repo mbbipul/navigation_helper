@@ -30,9 +30,12 @@ public class Distance {
         dist = Math.acos(dist);
         dist = rad2deg(dist);
         dist = dist * 60 * 1.1515;
-        return (dist*1000);
+        return round((dist*1000),3);
     }
-
+    public static double round(double value, int precision) {
+        int scale = (int) Math.pow(10, 2);
+        return (double) Math.round(value * scale) / scale;
+    }
 
     private double deg2rad(double deg) {
         return (deg * Math.PI / 180.0);

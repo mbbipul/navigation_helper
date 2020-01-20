@@ -241,6 +241,18 @@ public class NavRoute {
         return i-1;
     }
 
+    public List<CustomLatLng> getAllPointsWithInfo(){
+        List<CustomLatLng> customLatLngs = new ArrayList<>();
+        int i = 0;
+        for (RouteInfo x : routeInfos){
+            LatLng latLng = new LatLng(x.getLocationD().getLattitude(),
+                    x.getLocationD().getLongitude());
+            CustomLatLng customLatLng = new CustomLatLng(latLng,x.getRoute().getDirection(),i);
+            customLatLngs.add(customLatLng);
+            i++;
+        }
+        return  customLatLngs;
+    }
     public LocationIndex getNearestpointLocation(Location currentLocation){
         List<LocationIndex> locationIndices = getNearest3Point(currentLocation);
         Distance distance = new Distance();

@@ -33,6 +33,7 @@ import com.example.navigation.database.AppDatabase;
 import com.example.navigation.entity.LocationD;
 import com.example.navigation.entity.Route;
 import com.example.navigation.navigation.Navigation;
+import com.example.navigation.utils.CustomLatLng;
 import com.example.navigation.utils.Distance;
 import com.example.navigation.utils.NavRoute;
 import com.example.navigation.utils.DatabaseInitializer;
@@ -92,6 +93,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
      NavRoute navRoute ;
      Navigation navigation;
 
+     boolean isNavigationStart = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -149,7 +151,7 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
             public void onLocationResult(LocationResult locationResult) {
                 Location location = locationResult.getLastLocation();
                 mMap.clear();
-                drawLine(navRoute.getAllpointLatLngs());
+                drawLine();
 
 
                 Distance dis = new Distance();
@@ -158,53 +160,34 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
                     Log.d("TAG", "location update " + location);
                     LatLng sydney = new LatLng(location.getLatitude(), location.getLongitude());
                     mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Current"));
-                    // mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
                     int index = navRoute.getNearestPointIndex(location);
 
                     LatLng minLatLng = navRoute.getMinPoint(1,location);
-                    //navRoute.getNearestpointLocation(location);
-//
-//                       // Toast.makeText(MapsActivity.this, String.valueOf(locationIndexs.size()), Toast.LENGTH_SHORT).show();
-//
-                    if (prevLocation!=null){
-                        double distance = dis.distance(prevLocation,location);
-                        details.setText(String.valueOf(distance));
-                        if(distance>1){
-                            navigation.startNavigation(location);
-                        }
-                    }
-                    prevLocation = location;
-//
-//                        String res = "";
-//                        for(LocationIndex x : locationIndexs){
-//                            LatLng latLng = new LatLng(x.getLocation().getLatitude(), x.getLocation().getLongitude());
-//                            res += String.valueOf(x.getIndex()+ " " +"\n");
-//                            mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(x.getIndex())).snippet("Marker in index"));
-//                           // mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+
+//                    if ((prevLocation!=null) && !isNavigationStart){
+//                        double distance = dis.distance(prevLocation,location);
+//                        details.setText(String.valueOf(distance));
+//                        if(distance>1){
+//                            navigation.startNavigation(location);
+//                            isNavigationStart = true;
 //                        }
+//                    }else if (isNavigationStart){
+                        navigation.startNavigation(location);
+                   // }
+                    prevLocation = location;
                     mMap.addMarker(new MarkerOptions().position(minLatLng).title(String.valueOf(minLatLng.toString())).snippet("Marker in index"));
 
-                    // Toast.makeText(MapsActivity.this,res, Toast.LENGTH_LONG).show();
 
                     mMap.addCircle(new CircleOptions()
-//                                .center(new LatLng(navRoute.getPointLocation(index).getLatitude()
-//                                        ,navRoute.getPointLocation(index).getLongitude()))
                                     .center(minLatLng)
                                     .radius(3)
                                     .strokeColor(Color.RED)
                                     .fillColor(Color.BLUE)
                     );
-                    Bitmap bitmap = getBitmap(R.drawable.ic_directions_run_black_24dp);
-                    //Toast.makeText(MapsActivity.this, String.valueOf(navRoute.getAllpointLatLngs().size()), Toast.LENGTH_SHORT).show();
-                    //   navRoute.setAnimation(mMap,navRoute.getAllpointLatLngs(),bitmap);
                 }
 
             }
         };
-       // startNavigationhelper();
-
-      //  Toast.makeText(this, routeName, Toast.LENGTH_SHORT).show();
-
     }
 
     @Override
@@ -452,15 +435,6 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
     }
 
     private void startNavigationhelper(ArrayList<RouteInfo> rInfos){
-        drawLine(navRoute.getAllpointLatLngs());
-//            LatLng ver = navRoute.getVerticalDistance(
-//                    new LatLng(22.659551652660642, 90.36360025405884),
-//                    new LatLng(22.65750714694182, 90.3629457950592),
-//                    new LatLng(22.65893780910662,  90.36292433738708));
-//
-//            System.out.println("bipul"+ver);
-
-
         client = LocationServices.getFusedLocationProviderClient(this);
         client.requestLocationUpdates(request,duLocationCallback , null);
 
@@ -476,13 +450,15 @@ public class MapsActivity extends AppCompatActivity implements GoogleMap.OnMyLoc
 
         return bitmap;
     }
-    public void drawLine(List<LatLng> points) {
-        if (points == null) {
-            Log.e("Draw Line", "got null as parameters");
-            return;
+    public void drawLine() {
+        List<CustomLatLng> customLatLngs = navRoute.getAllPointsWithInfo();
+        for (CustomLatLng x:customLatLngs){
+            mMap.addMarker(new MarkerOptions().position(x.getLatLng())
+                    .title(String.valueOf(x.getIndex())).snippet(x.getDirection())
+            );
         }
 
-        mMap.addPolyline(new PolylineOptions().addAll(points).width(3).color(Color.RED));
+        mMap.addPolyline(new PolylineOptions().addAll(navRoute.getAllpointLatLngs()).width(3).color(Color.RED));
     }
 
     @Override

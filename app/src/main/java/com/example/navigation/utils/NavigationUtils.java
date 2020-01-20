@@ -21,21 +21,19 @@ public class NavigationUtils {
         LatLng m = midPoint(p1.latitude,p1.longitude,p2.latitude,p2.longitude);
 
         List<LatLng> points = Arrays.asList(p1,m,p2);
-        List<Double> arrPoint = getDistance(p1,m,p2,currentLoc);
-        System.out.println("unsorted array"+arrPoint);
+        List<Double> arrPoint = getDistances(p1,m,p2,currentLoc);
 
         List<Double> arrPointSort = new ArrayList<>(arrPoint);
         Collections.sort(arrPointSort);
-        System.out.println("unsorted array"+arrPoint);
-        System.out.println("sorted array"+arrPointSort);
+
         int [] twoMinPoint = new int[2];
         twoMinPoint[0] = arrPoint.indexOf(arrPointSort.get(0));
         twoMinPoint[1] = arrPoint.indexOf(arrPointSort.get(1));
-
+        System.gc();
         return getVerticalDistance(points.get(twoMinPoint[0]),points.get(twoMinPoint[1]),currentLoc);
     }
 
-    private static List<Double> getDistance(LatLng p1, LatLng m, LatLng p2, LatLng currentLoc) {
+    private static List<Double> getDistances(LatLng p1, LatLng m, LatLng p2, LatLng currentLoc) {
         Distance dis = new Distance();
         List<Double> distances = new ArrayList<>();
         distances.add(dis.distance(p1,currentLoc));
@@ -88,6 +86,20 @@ public class NavigationUtils {
         twoPoints.add(points.get(minIndex));
         twoPoints.add(points.get(minIndex+1));
         return twoPoints;
+    }
+
+    public static double calcBearing(Location loc1,Location loc2){
+        double lat1 = loc1.getLatitude();
+        double lng1 = loc1.getLongitude();
+        double lat2 = loc2.getLatitude();
+        double lng2 = loc2.getLongitude();
+
+        double dLon = (lng2-lng1);
+        double y = Math.sin(dLon) * Math.cos(lat2);
+        double x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+        double brng = Math.toDegrees((Math.atan2(y, x)));
+        brng = (360 - ((brng + 360) % 360));
+        return Distance.round(brng,2);
     }
 
 

@@ -55,9 +55,9 @@ public class Navigation {
                                     ,TextToSpeech.QUEUE_FLUSH,null);
 
                         } else {
-                            compass = Math.toDegrees(dSensorEvent.values[0]);
+                            compass = Distance.round(Math.toDegrees(dSensorEvent.values[0]),1);
                             if (compass < 0) {
-                                compass = (compass + 360) % 360;
+                                compass = Distance.round((compass + 360) % 360,1);
                             }
                         }
                         //Toast.makeText(RoutesActivity.this, String.valueOf(dSensorEvent.values[0]), Toast.LENGTH_SHORT).show();
@@ -87,7 +87,7 @@ public class Navigation {
 
 
     public void startNavigation(Location location){
-     //   textToSpeech.speak("Navigation start",TextToSpeech.QUEUE_FLUSH,null);
+        textToSpeech.speak("Navigation start",TextToSpeech.QUEUE_FLUSH,null);
 
         details.setText("");
         float hdop = location.getAccuracy()/5;
@@ -100,11 +100,12 @@ public class Navigation {
         int nearestPointIndex = navRoute.getNearestPointIndex(location);
         int lastPointIndex = navRoute.getLastPointIndex();
 
+        details.setText(details.getText()+String.valueOf("current index"+nearestPointIndex+"\n"));
         currentNavigationPoint = new NavigationPoint(nearestPointIndex,
                 navRoute.getNextPointIndex(nearestPointIndex),
                 navRoute.getPrevPointIndex(nearestPointIndex)
         );
-        details.setText(details.getText()+"\n"+"Accurecy "+String.valueOf(hdop));
+        details.setText(details.getText()+"Accurecy "+String.valueOf(hdop)+"\n");
 
 //        if (hdop > 5.0){
 //            Toast.makeText(context, "low gps", Toast.LENGTH_SHORT).show();
@@ -119,14 +120,23 @@ public class Navigation {
 //            ALPHA_MIN = 35;
 
         if (isLocationNearToRoute(currentPoint)){
-            if(hasDeviation(location)){
-                //textToSpeech.speak("You are right track",TextToSpeech.QUEUE_FLUSH,null);
-                Toast.makeText(context, "has deviation", Toast.LENGTH_SHORT).show();
-                returnToTrack(location);
+            if (nearestPointIndex == navRoute.getN()-1){
+                Toast.makeText(context, "reached", Toast.LENGTH_SHORT).show();
+                textToSpeech.speak("You are reached ",TextToSpeech.QUEUE_FLUSH,null);
+
             }else {
-                Toast.makeText(context, "Move forward", Toast.LENGTH_SHORT).show();
-                textToSpeech.speak("Move forward",TextToSpeech.QUEUE_FLUSH,null);
+                if(hasDeviation(location)){
+                    //textToSpeech.speak("You are right track",TextToSpeech.QUEUE_FLUSH,null);
+                    details.setText("\n"+details.getText()+"has deviation\n");
+                    Toast.makeText(context, "has deviation", Toast.LENGTH_SHORT).show();
+                    returnToTrack(location);
+                }else {
+                    details.setText(details.getText()+"\n");
+                    Toast.makeText(context, "Move forward", Toast.LENGTH_SHORT).show();
+                    textToSpeech.speak("Move forward",TextToSpeech.QUEUE_FLUSH,null);
+                }
             }
+
         }
         else {
             Toast.makeText(context, "too far", Toast.LENGTH_SHORT).show();
@@ -140,12 +150,15 @@ public class Navigation {
         navigateToAzimuth(location);
     }
 
-    private float calcBearing(Location loc1,Location loc2){
-        return loc1.bearingTo(loc2);
+    private double calcBearing(Location loc1,Location loc2){
+        double bearing = loc1.bearingTo(loc2);
+        details.setText(details.getText()+"bearing " + String.valueOf(bearing));
+        return bearing;
+        //return NavigationUtils.calcBearing(loc1,loc2);
     }
 
     private  void navigateToAzimuth(Location location){
-        float alpha2 = calcDeviationInDegree(location);
+        double alpha2 = calcDeviationInDegree(location);
         turnAround(azimuth(alpha2),location);
     }
 
@@ -160,11 +173,20 @@ public class Navigation {
         }
         else {
             if (Math.abs(azimuth) != 5){
-                if (azimuth<0){
-                    Toast.makeText(context, "left", Toast.LENGTH_SHORT).show();
-                    textToSpeech.speak("Please turn left ",TextToSpeech.QUEUE_FLUSH,null);
+                if (azimuth>0){
+                    if (azimuth<=180){
+                        speak("left");
+                    }else{
+                        speak("right");
+                    }
+
                 }
                 else {
+                    if (Math.abs(azimuth)<=180){
+                        speak("right");
+                    }else{
+                        speak("left");
+                    }
                     Toast.makeText(context, "right", Toast.LENGTH_SHORT).show();
                     textToSpeech.speak("Please turn right ", TextToSpeech.QUEUE_FLUSH, null);
                 }
@@ -176,23 +198,30 @@ public class Navigation {
 
 
     }
+
+    private void speak(String speak){
+        Toast.makeText(context, speak, Toast.LENGTH_SHORT).show();
+        textToSpeech.speak("Please turn "+speak,TextToSpeech.QUEUE_FLUSH,null);
+    }
     private double azimuth(double alpha2){
-        double deviceAzimuth ;
-        if (compass > 180)
-            deviceAzimuth = 360 - compass;
-        else
-            deviceAzimuth = -compass;
-        return deviceAzimuth + alpha2;
+//        double deviceAzimuth ;
+//        if (compass > 180)
+//            deviceAzimuth = 360 - compass;
+//        else
+//            deviceAzimuth = -compass;
+        details.setText(details.getText()+"compass " + String.valueOf(compass));
+
+        return Distance.round(compass + alpha2,6);
     }
 
-    private float calcDeviationInDegree(Location location){
+    private double calcDeviationInDegree(Location location){
         Location prevLoc = navRoute.getPointLocation(currentNavigationPoint.getPreviousPointIndex());
         Location nextLoc = navRoute.getPointLocation(currentNavigationPoint.getCurrentPointIndex());
-        float alpha1 = calcBearing(prevLoc,location);
-        float alpha2 = calcBearing(location,nextLoc);
+        double alpha1 = calcBearing(prevLoc,location);
+        double alpha2 = calcBearing(location,nextLoc);
        // float alpha = alpha2 - alpha1 ;
        // retrun alpha;
-        return alpha2;
+        return  Distance.round(alpha2,6);
     }
     private boolean hasDeviation(Location location){
 //        float hdop = location.getAccuracy()/5;
@@ -215,35 +244,6 @@ public class Navigation {
                 currentNavigationPoint.getNextPointIndex());
         double distance = dis.distance(location,nextPoint);
         return distance;
-    }
-
-    public void nav(Location location){
-
-        ArrayList<Location> locations = navRoute.getRoutePoints();
-        int nearestPointIndex = navRoute.getNearestPointIndex(location);
-
-        NavigationPoint currentNavigationPoint = new NavigationPoint(nearestPointIndex,
-                navRoute.getNextPointIndex(nearestPointIndex),
-                navRoute.getPrevPointIndex(nearestPointIndex)
-        );
-
-        if(isLocationNearToPath(
-                navRoute.getPointLatLng(nearestPointIndex))){
-            textToSpeech.speak("You are right track",TextToSpeech.QUEUE_FLUSH,null);
-        }else {
-            textToSpeech.speak("You are too far from the path",TextToSpeech.QUEUE_FLUSH,null);
-        }
-    }
-
-    private List<LatLng> getNearestPath(NavigationPoint currentNavigationPoint){
-        List<LatLng> nearestPath = new ArrayList<>();
-        ///if (currentNavigationPoint.getPreviousPointIndex() >= 0)
-            nearestPath.add(navRoute.getPointLatLng(0));
-        //if (currentNavigationPoint.getCurrentPointIndex() >= 0)
-            nearestPath.add(navRoute.getPointLatLng(1));
-       // if (currentNavigationPoint.getNextPointIndex() >= 0)
-        //    nearestPath.add(navRoute.getPointLatLng(currentNavigationPoint.getNextPointIndex()));
-        return nearestPath;
     }
 
 }
